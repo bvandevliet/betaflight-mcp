@@ -12,6 +12,7 @@
       "Bash(curl:*)",
       "Bash(curl -s:*)",
       "Bash(du:*)",
+      "Bash(ls:*)",
       "Bash(find:*)",
       "Bash(cd:*)",
       "Bash(tail:*)",
