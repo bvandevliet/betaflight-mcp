@@ -1,14 +1,15 @@
 # Betaflight MCP
 
-## MCP tool resources
+## Architecture
+The server exposes Betaflight flight controller control over two complementary interfaces that share a single serial connection:
 
-### MSP protocol and implementation
-This is how the Betaflight Configurator communicates with the flight controller. Understanding this is key to understanding how to interface and interact with the flight controller, and how to implement the MCP tool.
-https://github.com/betaflight/betaflight-configurator/raw/refs/heads/master/src/js/msp/MSPCodes.js
-https://github.com/betaflight/betaflight-configurator/raw/refs/heads/master/src/js/msp/MSPConnector.js
-https://github.com/betaflight/betaflight-configurator/raw/refs/heads/master/src/js/msp/MSPHelper.js
-https://github.com/betaflight/betaflight-configurator/raw/refs/heads/master/src/js/injected_methods.js
+- **MSP binary protocol** (`src/msp/`) — for real-time sensor reads (attitude, IMU, GPS, RC, motors). Structured, typed, low-latency.
+- **CLI text interface** (`src/cli/`) — for all configuration: feature flags, variable get/set, dump/diff, save.
 
-### CLI commands and variable configuration reference
-This is the command line interface reference for Betaflight, which is used to configure and tune the flight controller programmatically. All the commands and variables that can be set via CLI are documented here, and all should be available as MCP tools including their descriptions and options.
+## CLI commands and variables as MCP tools
+All the commands and variables that can be set via CLI are available as MCP tools, including their descriptions, args and constraints.
 https://github.com/betaflight/betaflight.com/raw/refs/heads/master/docs/development/Cli.md
+
+## Development
+`pnpm build` automatically runs `pnpm generate` as a prebuild step to fetch the latest CLI.md and regenerate `src/generated/variables.ts`.
+Always run `pnpm typecheck` after editing any source files to catch errors before building.
