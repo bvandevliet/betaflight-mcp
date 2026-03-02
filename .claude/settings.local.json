@@ -19,9 +19,10 @@
       "Bash(head:*)",
       "Bash(bash scripts/:*)",
       "Bash(npx tsx:*)",
+      "Bash(node:*)",
       "Bash(pnpm typecheck)",
       "Bash(pnpm build)",
-      "Bash(node:*)"
+      "Bash(pnpm generate:*)"
     ]
   }
 }

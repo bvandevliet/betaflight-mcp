@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with th
 ## Commands
 
 ```bash
-pnpm generate          # Fetch CLI.md from GitHub, regenerate src/generated/variables.ts
+pnpm generate          # Fetch firmware sources + Cli.md from GitHub, regenerate src/generated/variables.ts
 pnpm typecheck         # Type-check without emitting (tsc --noEmit)
 pnpm build             # pnpm generate (prebuild) → tsc → dist/
 pnpm build:watch       # Incremental watch build
@@ -63,9 +63,15 @@ Each `tools/*.ts` file exports a `register*Tools(server: McpServer)` function. `
 
 ### Code generation (`scripts/generate-variables.ts`)
 
-Fetches `Cli.md` from `raw.githubusercontent.com/betaflight/betaflight.com/...` and parses the markdown variable table. Table header is `` | `Variable` `` (backtick-wrapped); variable name cells use `[`name`](/path)` markdown link syntax. The regex handles both forms.
+Fetches three sources in parallel and merges them:
 
-Datatype → Zod schema mapping: `UINT8/16/32/INT8/16` → `z.number().int().min().max()`, `FLOAT` → `z.number().min().max()`, ON/OFF values → `z.enum(['OFF', 'ON'])`, anything else → `z.string()`. Output is `src/generated/variables.ts` — **committed to git**, so the server can run without re-fetching docs. Re-run `pnpm generate` to update when Betaflight releases new firmware.
+1. **`parameter_names.h`** — resolves `PARAM_NAME_*` macros to CLI string names.
+2. **`settings.c`** — authoritative variable list (~762 vars). Parsed via a brace-depth state machine that extracts each `valueTable[]` entry. Provides var type (`VAR_UINT8` etc.), scope (`MASTER`/`PROFILE`/etc.), mode flags (`MODE_LOOKUP`/`MODE_BITSET`/etc.), and numeric ranges from `.config.minmax` / `.config.minmaxUnsigned` / `.config.u32Max`.
+3. **`Cli.md`** — ~106 vars with human descriptions and default values; used only to enrich C-derived entries. **Never a fallback source**: 31 Cli.md entries are removed/renamed vars absent from current firmware. If `settings.c` is unavailable, the generator exits with an error.
+
+Datatype → Zod schema mapping: integer types → `z.number().int().min().max()`, `FLOAT` → `z.number().min().max()`, `MODE_LOOKUP` → `z.string()`, `MODE_BITSET` → `z.enum(['OFF', 'ON'])`, ON/OFF min/max → `z.enum(['OFF', 'ON'])`, anything else → `z.string()`. Range bounds omitted when only symbolic constants (e.g. `LPF_MAX_HZ`) are used; FC enforces bounds at runtime.
+
+Output is `src/generated/variables.ts` — **committed to git**, so the server can run without re-fetching docs. Re-run `pnpm generate` to update when Betaflight releases new firmware.
 
 ## TypeScript strict-mode requirements
 
@@ -82,3 +88,5 @@ When implementing new MSP tools or fixing protocol issues, refer to the upstream
 - MSP codes: `https://github.com/betaflight/betaflight-configurator/raw/refs/heads/master/src/js/msp/MSPCodes.js`
 - MSP framing/parsing: `MSPConnector.js`, `MSPHelper.js` in the same directory
 - CLI variables reference: `https://raw.githubusercontent.com/betaflight/betaflight.com/refs/heads/master/docs/development/Cli.md`
+- CLI variable names (macros): `https://github.com/betaflight/betaflight/raw/refs/heads/master/src/main/fc/parameter_names.h`
+- CLI variable definitions (authoritative, ~500 vars): `https://github.com/betaflight/betaflight/raw/refs/heads/master/src/main/cli/settings.c`

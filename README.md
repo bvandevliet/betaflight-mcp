@@ -6,19 +6,18 @@ An MCP (Model Context Protocol) server that exposes Betaflight flight controller
 
 - Real-time sensor reads — attitude, IMU, GPS, RC channels, motors, battery
 - Full CLI access — feature flags, variable get/set, dump/diff, save, defaults
-- Auto-generated variable tools: every CLI-configurable variable exposed as a `get_variable_<name>` / `set_variable_<name>` pair, derived from the upstream Betaflight docs
+- Auto-generated variable tools: ~762 CLI-configurable variables each exposed as a `get_<name>` / `set_<name>` tool pair, derived from the Betaflight firmware source
 
 ## CLI commands and variables as MCP tools
 
-All CLI-configurable variables are exposed as individual `get_variable_<name>` / `set_variable_<name>` tool pairs, auto-generated from the upstream Betaflight CLI reference:
-<https://github.com/betaflight/betaflight.com/raw/refs/heads/master/docs/development/Cli.md>
+All CLI-configurable variables are exposed as individual `get_<name>` / `set_<name>` tool pairs, auto-generated from the Betaflight firmware source (`settings.c`, ~762 variables), enriched with descriptions from the CLI reference docs.
 
 Run `pnpm generate` to regenerate `src/generated/variables.ts` after a Betaflight release.
 
 ## Development
 
 ```bash
-pnpm generate      # Re-fetch CLI.md, regenerate src/generated/variables.ts
+pnpm generate      # Re-fetch firmware sources + Cli.md, regenerate src/generated/variables.ts
 pnpm dev           # Run directly via tsx (no build step)
 pnpm build         # pnpm generate (prebuild) → tsc → dist/
 pnpm typecheck     # Type-check without emitting
@@ -107,7 +106,7 @@ If you prefer Docker on Windows:
 docker build -t betaflight-mcp .
 ```
 
-The build fetches the latest Betaflight CLI variable reference from GitHub and compiles TypeScript. An internet connection is required.
+The build fetches the latest Betaflight firmware sources and CLI reference from GitHub and compiles TypeScript. An internet connection is required.
 
 #### 2. Find your serial device path
 
