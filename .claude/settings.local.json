@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:www.npmjs.com)",
+      "WebFetch(domain:ts.sdk.modelcontextprotocol.io)",
+      "WebFetch(domain:serialport.io)",
+      "WebFetch(domain:www.betaflight.com)",
+      "WebFetch(domain:deepwiki.com)",
+      "Bash(curl:*)",
+      "Bash(curl -s:*)",
+      "Bash(du:*)",
+      "Bash(find:*)",
+      "Bash(cd:*)",
+      "Bash(tail:*)",
+      "Bash(head:*)",
+      "Bash(bash scripts/:*)",
+      "Bash(npx tsx:*)",
+      "Bash(pnpm typecheck)",
+      "Bash(pnpm build)",
+      "Bash(node:*)"
+    ]
+  }
+}
