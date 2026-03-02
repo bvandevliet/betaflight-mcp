@@ -52,6 +52,7 @@ Docker Desktop on Windows uses a WSL2 Linux VM. Passing COM ports into a Linux c
 - [Node.js 22+](https://nodejs.org/) (LTS)
 - [pnpm](https://pnpm.io/installation): `npm install -g pnpm`
 - [Visual Studio Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) with the **Desktop development with C++** workload (required to compile the `serialport` native addon)
+- [Claude Desktop](https://claude.ai/download) (latest version)
 
 #### 1. Install and build
 
@@ -60,17 +61,23 @@ pnpm install
 pnpm build
 ```
 
+The build command automatically runs `pnpm generate` to fetch the latest Betaflight firmware sources and generate variable tools.
+
 #### 2. Find your COM port
 
 Open **Device Manager** → **Ports (COM & LPT)** and note the port assigned to your flight controller (e.g. `COM3`).
 
 #### 3. Configure Claude Desktop
 
-Edit `%APPDATA%\Claude\claude_desktop_config.json`:
+Click the Claude menu and select **Settings…**, then navigate to the **Developer** tab and click **Edit Config**.
+
+This opens `%APPDATA%\Claude\claude_desktop_config.json`. Add the following configuration:
 
 ```json
 {
+  ...,
   "mcpServers": {
+    ...,
     "betaflight": {
       "command": "node",
       "args": ["C:\\path\\to\\betaflight-mcp\\dist\\server.js"]
@@ -79,24 +86,72 @@ Edit `%APPDATA%\Claude\claude_desktop_config.json`:
 }
 ```
 
-Use escaped backslashes or forward slashes in the path. Restart Claude Desktop.
+**Replace** `C:\\path\\to\\betaflight-mcp` with the absolute path to your cloned repository. Use escaped backslashes (`\\`) or forward slashes (`/`).
 
-When connecting from Claude, pass your COM port (e.g. `COM3`) as the port argument to the `connect_flight_controller` tool.
+> **Understanding the Configuration:**
+> - `"betaflight"`: A friendly name that appears in Claude Desktop
+> - `"command": "node"`: Runs the server using Node.js
+> - `"args"`: Path to the compiled server JavaScript file
+
+> **Security Consideration:**
+> The server requires access to serial ports to communicate with your flight controller. It runs with your user account permissions. Only connect to flight controllers you trust and always review tool actions before approving them in Claude.
+
+#### 4. Restart Claude Desktop
+
+Completely quit and restart Claude Desktop to load the new configuration.
+
+#### 5. Verify the connection
+
+Upon successful restart, you'll see an MCP server indicator (hammer icon) in the bottom-right corner of the conversation input box. Click it to view available Betaflight tools.
+
+To connect to your flight controller, tell Claude:
+```
+Connect to my flight controller on COM3
+```
+
+Claude will use the `connect_flight_controller` tool with your specified COM port.
 
 ### Windows — Docker via USBIPD (advanced)
 
-If you prefer Docker on Windows:
+If you prefer Docker on Windows, you'll need to bridge USB devices into WSL2.
 
-1. Install [USBIPD-WIN](https://github.com/dorssel/usbipd-win).
-2. In an elevated PowerShell, bind and attach your FC's USB device to WSL2:
-   ```powershell
-   usbipd list                       # find the BUSID for your FC
-   usbipd bind --busid <BUSID>
-   usbipd attach --wsl --busid <BUSID>
-   ```
-3. In WSL2, verify the device appears (e.g. `/dev/ttyACM0`).
-4. Build the image from WSL2: `docker build -t betaflight-mcp .`
-5. Use the Linux/macOS Claude Desktop config above (Docker Desktop must have WSL2 integration enabled).
+#### Prerequisites
+
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) with WSL2 integration enabled
+- [USBIPD-WIN](https://github.com/dorssel/usbipd-win) for USB device sharing
+
+#### 1. Share your USB device with WSL2
+
+In an elevated PowerShell:
+
+```powershell
+# Find your flight controller's BUSID
+usbipd list
+
+# Bind and attach the device to WSL2
+usbipd bind --busid <BUSID>
+usbipd attach --wsl --busid <BUSID>
+```
+
+#### 2. Verify device in WSL2
+
+Open a WSL2 terminal and verify the device appears:
+
+```bash
+ls /dev/ttyACM*
+```
+
+#### 3. Build the Docker image
+
+From your WSL2 terminal in the project directory:
+
+```bash
+docker build -t betaflight-mcp .
+```
+
+#### 4. Configure Claude Desktop
+
+Follow the [Linux/macOS Docker configuration steps](#3-configure-claude-desktop-1) above, using the device path from WSL2 (e.g., `/dev/ttyACM0`).
 
 ### Linux / macOS — Docker (recommended)
 
@@ -124,18 +179,21 @@ Common values: `/dev/ttyUSB0`, `/dev/ttyACM0` (Linux) · `/dev/cu.usbmodem*` (ma
 
 #### 3. Configure Claude Desktop
 
-Edit `claude_desktop_config.json`:
+Click the Claude menu and select **Settings…**, then navigate to the **Developer** tab and click **Edit Config**.
+
+This opens the configuration file:
 
 | Platform | Path |
 |----------|------|
 | macOS    | `~/Library/Application Support/Claude/claude_desktop_config.json` |
 | Linux    | `~/.config/Claude/claude_desktop_config.json` |
 
-Replace `/dev/ttyACM0` with your actual device path:
+Add the following configuration, replacing `/dev/ttyACM0` with your actual device path:
 
 ```json
 {
   "mcpServers": {
+    ...,
     "betaflight": {
       "command": "docker",
       "args": [
@@ -148,4 +206,27 @@ Replace `/dev/ttyACM0` with your actual device path:
 }
 ```
 
-Restart Claude Desktop. The betaflight tools will appear in the tool list.
+> **Understanding the Configuration:**
+> - `"betaflight"`: A friendly name that appears in Claude Desktop
+> - `"command": "docker"`: Runs the server in a Docker container
+> - `"--rm"`: Automatically removes the container after exit
+> - `"-i"`: Enables interactive mode for stdio communication
+> - `"--device"`: Grants the container access to the serial device
+
+> **Security Consideration:**
+> Granting Docker access to a serial device allows the container to communicate with your flight controller. The container runs with limited permissions, but ensure you only connect to flight controllers you trust.
+
+#### 4. Restart Claude Desktop
+
+Completely quit and restart Claude Desktop to load the new configuration.
+
+#### 5. Verify the connection
+
+Upon successful restart, you'll see an MCP server indicator (hammer icon) in the bottom-right corner of the conversation input box. Click it to view available Betaflight tools.
+
+To connect to your flight controller, tell Claude:
+```
+Connect to my flight controller on /dev/ttyACM0
+```
+
+Claude will use the `connect_flight_controller` tool with your specified device path.
