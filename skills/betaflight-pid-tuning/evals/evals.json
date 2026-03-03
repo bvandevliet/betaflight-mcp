@@ -1,0 +1,74 @@
+{
+  "skill_name": "betaflight-pid-tuning",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "I just built a 5\" freestyle quad with F7 FC, running Betaflight 4.5.1, AM32 ESCs with bidirectional DSHOT. The quad flies but it has a lot of propwash oscillations after throttle chops and the motors get warm during hover. I have blackbox logs. Where do I start?",
+      "expected_output": "A structured troubleshooting response that: (1) recommends analyzing the hover log before making changes, (2) recommends pushing RPM filter Q toward 1000 (not just mentioning it), (3) explains D-term noise as the motor heat cause, (4) prominently mentions dynamic idle as a propwash factor with a specific fix, (5) gives a structured tuning order.",
+      "files": [],
+      "assertions": [
+        "The response recommends analyzing the blackbox log / hover log before making filter or PID changes",
+        "The response recommends pushing RPM filter Q toward 1000 specifically (not just mentioning Q, and not recommending 500 as a target or acceptable value)",
+        "The response explains the connection between D-term noise and motor heat",
+        "The response mentions dynamic idle as a factor in propwash with a specific value or fix",
+        "The response provides at least one specific CLI variable or command to check/set",
+        "The response suggests a structured tuning order (filters before PID changes)"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "I want to use the PIDtoolbox basement tuning approach to tune my 5\" quad. I've already done my filter tuning and the gyro noise looks clean. Walk me through the PID tuning sequence step by step. I'm flying in my backyard so I can do angle mode.",
+      "expected_output": "A clear step-by-step guide to the PIDtoolbox basement tuning method: (1) initial setup (FF=0, dynamic damping=0, angle mode, reduced angle limit), (2) damping slider sweep for PD balance, (3) master multiplier sweep using latency as the metric, (4) I-term sweep, (5) feed forward in acro mode. Should include specific slider values and what to look for in PID Toolbox.",
+      "files": [],
+      "assertions": [
+        "The response mentions setting feed forward to 0 before starting PID flights",
+        "The response mentions setting dynamic damping (D_max / d_min) to 0 before PID tuning",
+        "The response describes sweeping the damping slider with specific numeric values (e.g. 0.6 to 1.4)",
+        "The response describes using step response in PID Toolbox to evaluate results",
+        "The response confirms that angle mode is valid for PD balance and master multiplier tests",
+        "The response states that feed forward must be tested in acro/rate mode (not angle mode)",
+        "The response explains latency as the primary metric for master multiplier tuning"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "My quad is connected on COM5. Can you check what my current RPM filter settings are and tell me if they look reasonable for a 5\" with tri-blade props?",
+      "expected_output": "The response should use the MCP tools to connect to the FC, read the RPM filter variables (rpm_filter_q, rpm_filter_weights, rpm_filter_min_hz, rpm_filter_fade_range_hz), then evaluate the current values against recommended settings for a 5\" tri-blade build. Should suggest specific changes if values are suboptimal.",
+      "files": [],
+      "assertions": [
+        "The response attempts to call connect_flight_controller with port COM5 (or explains it would do so)",
+        "The response attempts to read rpm_filter_q (via get_rpm_filter_q, cli_exec, or equivalent)",
+        "The response attempts to read or ask about rpm_filter_weights",
+        "The response references a Q value target of around 1000 as optimal",
+        "The response explains the tri-blade prop harmonic weight recommendation (2nd harmonic should be low/zero, e.g. 100,0,80)",
+        "The response does not apply any changes or call cli_save without user confirmation"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "I'm running 5\" props with about 4.5 pitch. My quad has really bad propwash after throttle chops. A friend told me to check dynamic idle — I ran `get dyn_idle_min_rpm` and it says 0. How do I set this up correctly?",
+      "expected_output": "A clear explanation of dynamic idle: (1) enable by setting dyn_idle_min_rpm to a nonzero value, (2) give a specific starting value for 5\" props from the table (20-40 range), (3) explain that steeper pitch props need higher idle values, (4) provide the exact CLI commands including transient_throttle_limit = 0. Should explain the motor-stall -> propwash mechanism.",
+      "files": [],
+      "assertions": [
+        "The response instructs enabling dynamic idle by setting dyn_idle_min_rpm to a nonzero value (any value > 0 enables it)",
+        "The response gives a specific starting dyn_idle_min_rpm value for 5\" props in the 20-40 range (representing 2000-4000 RPM)",
+        "The response explains that steeper pitch props require higher idle values than low-pitch props",
+        "The response provides the CLI command to apply the change (set dyn_idle_min_rpm = <value>) and mentions setting transient_throttle_limit = 0",
+        "The response explains the mechanism: motors near-stalling on throttle chop causes propwash regardless of PID tune"
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "I just ordered an FC with a BMI270 gyro. My last FC had an ICM-42688-P and I was running 8kHz with DSHOT600. Can I do the same with the BMI270? What PID loop frequency and DSHOT protocol should I use?",
+      "expected_output": "A clear explanation that BMI270 cannot reliably run at 8kHz and the correct configuration: 3.2kHz PID loop with DSHOT300. Should explain why (data corruption at 8kHz), how to check/set it in Betaflight, and contrast with ICM-42688-P which can do 8kHz.",
+      "files": [],
+      "assertions": [
+        "The response states that BMI270 cannot reliably run at 8kHz (or should not be used at 8kHz)",
+        "The response recommends 3.2kHz as the correct PID loop frequency for BMI270",
+        "The response recommends DSHOT300 (not DSHOT600) for use with the 3.2kHz loop",
+        "The response explains the contrast: ICM-42688-P can run 8kHz reliably, BMI270 cannot",
+        "The response provides at least one CLI variable to check or set (e.g. get gyro_hardware, motor_pwm_protocol, or pid_process_denom)"
+      ]
+    }
+  ]
+}
