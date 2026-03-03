@@ -7,6 +7,27 @@ An MCP (Model Context Protocol) server that exposes Betaflight flight controller
 - Real-time sensor reads — attitude, IMU, GPS, RC channels, motors, battery
 - Full CLI access — feature flags, variable get/set, dump/diff, save, defaults
 - Auto-generated variable tools: ~762 CLI-configurable variables each exposed as a `get_<name>` / `set_<name>` tool pair, derived from the Betaflight firmware source
+- Expert PID tuning skill — automatically activates in Claude Code when tuning topics come up
+
+## Claude Code Plugin
+
+This repo ships a Claude Code plugin in the `plugin/` directory, which bundles:
+- The **PID tuning skill** — activates automatically when you mention Betaflight, PID tuning, filter tuning, propwash, oscillations, etc.
+- The **MCP server config** — connects Claude Code to the betaflight-mcp server
+
+### Install the plugin
+
+In Claude Code settings, add a local plugin pointing to the `plugin/` directory in this repo.
+
+Then run the setup command to configure the server path for your machine:
+
+```
+/betaflight-mcp-setup
+```
+
+This replaces the placeholder in `plugin/.mcp.json` with the absolute path to `dist/server.js` on your machine. Run it once after cloning and building. Restart Claude Code afterwards.
+
+> **Claude Desktop users:** The plugin system is a Claude Code (CLI) feature and is not available in Claude Desktop. Claude Desktop users configure the MCP server manually via `claude_desktop_config.json` (see platform-specific setup below) — this gives full access to all ~1554 tools. The PID tuning skill does not auto-activate in Claude Desktop; as a workaround, create a [Claude Project](https://support.anthropic.com/en/articles/9517075-what-are-projects) and attach `plugin/skills/betaflight-pid-tuning/SKILL.md` as project knowledge so it is always in context.
 
 ## CLI commands and variables as MCP tools
 

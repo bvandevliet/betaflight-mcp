@@ -1,0 +1,10 @@
+{
+  "name": "betaflight-mcp",
+  "displayName": "Betaflight MCP",
+  "description": "Connect Claude to Betaflight flight controllers. Real-time sensor reads, live CLI configuration, and an expert PID tuning assistant — powered by the MSP binary protocol and Betaflight CLI over USB serial.",
+  "pluginDir": "plugin",
+  "category": "hardware",
+  "tags": ["betaflight", "fpv", "drone", "pid-tuning", "mcp", "flight-controller", "serial"],
+  "repository": "https://github.com/bvandevliet/betaflight-mcp",
+  "license": "AGPL-3.0-only"
+}

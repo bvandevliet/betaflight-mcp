@@ -1,0 +1,12 @@
+{
+  "name": "betaflight-mcp",
+  "version": "1.0.0",
+  "description": "Betaflight flight controller control and PID tuning assistant via MCP. Provides real-time sensor reads, live CLI configuration, and an expert PID tuning skill.",
+  "author": {
+    "name": "Bob Vandevliet",
+    "url": "https://github.com/bvandevliet/betaflight-mcp"
+  },
+  "repository": "https://github.com/bvandevliet/betaflight-mcp",
+  "license": "AGPL-3.0-only",
+  "keywords": ["betaflight", "fpv", "drone", "pid-tuning", "mcp", "flight-controller"]
+}
