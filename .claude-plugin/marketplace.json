@@ -1,5 +1,6 @@
 {
   "name": "betaflight-mcp",
+  "description": "Betaflight MCP server with expert FPV drone PID tuning skill",
   "owner": {
     "name": "bvandevliet",
     "url": "https://github.com/bvandevliet"

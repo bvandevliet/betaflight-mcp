@@ -1,7 +1,7 @@
 {
   "name": "betaflight-mcp",
   "version": "1.0.0",
-  "description": "Betaflight flight controller control and PID tuning assistant via MCP. Provides real-time sensor reads, live CLI configuration, and an expert PID tuning skill.",
+  "description": "Expert Betaflight FPV quad tuning assistant. Combines PIDtoolbox basement tuning methodology with Chris Rosser's filter and PID theory. Has direct access to the Betaflight MCP server for real-time FC configuration.",
   "author": {
     "name": "Bob Vandevliet",
     "url": "https://github.com/bvandevliet/betaflight-mcp"
