@@ -1,7 +1,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { SerialTransport } from '../transport/serial.js';
-import { createSession, destroySession, getSession } from '../state.js';
+import { createSession, destroySession, getLastConnection, getSession, setLastConnection } from '../state.js';
 
 export function registerConnectionTools(server: McpServer): void {
   server.registerTool(
@@ -38,6 +38,7 @@ export function registerConnectionTools(server: McpServer): void {
       try {
         const transport = await SerialTransport.connect(port, baudRate);
         createSession(transport);
+        setLastConnection(port, baudRate);
         return {
           content: [
             {
@@ -52,6 +53,59 @@ export function registerConnectionTools(server: McpServer): void {
             {
               type: 'text' as const,
               text: `Failed to connect: ${err instanceof Error ? err.message : String(err)}`,
+            },
+          ],
+        };
+      }
+    },
+  );
+
+  server.registerTool(
+    'reconnect_flight_controller',
+    {
+      description:
+        'Reconnect to the last connected flight controller using the same port and baud rate. ' +
+        'Useful after a reboot (e.g. following cli_save or reboot_flight_controller). ' +
+        'Will disconnect any existing session first.',
+    },
+    async () => {
+      const last = getLastConnection();
+      if (!last) {
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: 'No previous connection recorded. Use connect_flight_controller with explicit port and baud rate.',
+            },
+          ],
+        };
+      }
+      const existing = getSession();
+      if (existing) {
+        destroySession();
+        try {
+          await existing.transport.close();
+        } catch {
+          // ignore — transport may already be closed after a reboot
+        }
+      }
+      try {
+        const transport = await SerialTransport.connect(last.port, last.baudRate);
+        createSession(transport);
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: `Reconnected to flight controller on ${last.port} at ${last.baudRate} baud.`,
+            },
+          ],
+        };
+      } catch (err) {
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: `Failed to reconnect: ${err instanceof Error ? err.message : String(err)}`,
             },
           ],
         };

@@ -80,3 +80,23 @@ export interface FcGpsData {
   altitudeMeters: number;
   speedCmPerSec: number;
 }
+
+export interface FcStatusEx {
+  cycleTime: number;
+  i2cErrors: number;
+  activeSensors: number;
+  mode: number;
+  pidProfileIndex: number;
+  cpuLoad: number;
+  numProfiles: number;
+  rateProfileIndex: number;
+  armingDisableFlags: number;
+}
+
+export interface FcDataflashSummary {
+  isReady: boolean;
+  isFull: boolean;
+  sectors: number;
+  totalSize: number;
+  usedSize: number;
+}

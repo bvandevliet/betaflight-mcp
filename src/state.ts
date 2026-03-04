@@ -9,7 +9,21 @@ interface Session {
   lock: ReturnType<typeof createMutex>;
 }
 
+interface LastConnection {
+  port: string;
+  baudRate: number;
+}
+
 let _session: Session | null = null;
+let _lastConnection: LastConnection | null = null;
+
+export function getLastConnection(): LastConnection | null {
+  return _lastConnection;
+}
+
+export function setLastConnection(port: string, baudRate: number): void {
+  _lastConnection = { port, baudRate };
+}
 
 export function getSession(): Session | null {
   return _session;

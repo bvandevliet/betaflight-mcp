@@ -26,12 +26,13 @@ export class MspClient {
     this.transport.addDataListener(this.dataListener);
   }
 
-  request(code: number, payload?: Buffer): Promise<Buffer> {
+  request(code: number, payload?: Buffer, timeoutMs?: number): Promise<Buffer> {
     return new Promise<Buffer>((resolve, reject) => {
+      const timeout = timeoutMs ?? REQUEST_TIMEOUT_MS;
       const timer = setTimeout(() => {
         this.pending.delete(code);
         reject(new Error(`MSP request timed out for code ${code}`));
-      }, REQUEST_TIMEOUT_MS);
+      }, timeout);
 
       this.pending.set(code, { resolve, reject, timer });
 

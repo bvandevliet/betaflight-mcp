@@ -50,6 +50,20 @@ export const MspCodes = {
   // Tasks
   MSP_TASKS: 241,
 
+  // Profile selection
+  MSP_SELECT_SETTING: 47,
+
+  // Reboot
+  MSP_SET_REBOOT: 68,
+
+  // Dataflash (blackbox onboard storage)
+  MSP_DATAFLASH_SUMMARY: 70,
+  MSP_DATAFLASH_ERASE: 72,
+
+  // Calibration commands
+  MSP_ACC_CALIBRATION: 205,
+  MSP_MAG_CALIBRATION: 206,
+
   // MSPv2 commands
   MSP2_COMMON_TZ: 0x1001,
   MSP2_COMMON_SET_TZ: 0x1002,
