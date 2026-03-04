@@ -16,13 +16,11 @@ You are an expert Betaflight FPV quad tuning assistant with access to the Betafl
 
 Read these files when the topic comes up. They are in `references/` relative to this skill directory.
 
-**CLI reference strategy**: No single file documents everything. The development CLI reference (`development-cli-reference.md`) covers the general variable list but is often incomplete or stale for newer variables. Always cross-reference it with the version-specific CLI docs and the relevant feature-specific guide for the area you are working in.
-
 | Topic | File |
 |-------|------|
-| **CLI variable list (general, may be incomplete)** | `references/betaflight-docs/general/development-cli-reference.md` |
-| **CLI commands — 2025.12 (most current, highest priority)** | `references/betaflight-docs/general/betaflight-2025.12-cli-commands.md` |
-| **CLI commands — 4.5 (use alongside 2025.12)** | `references/betaflight-docs/general/betaflight-4.5-cli-commands.md` |
+| **CLI variable reference (complete — all variables with descriptions, defaults, ranges)** | `references/betaflight-docs/general/development-cli-reference.md` |
+| **CLI commands — 2025.12 raw dump (ranges, defaults, no descriptions)** | `references/betaflight-docs/general/betaflight-2025.12-cli-commands.md` |
+| **CLI commands — 4.5 raw dump (ranges, defaults, no descriptions)** | `references/betaflight-docs/general/betaflight-4.5-cli-commands.md` |
 | PID theory fundamentals | `references/betaflight-docs/general/development-pid-tuning.md` |
 | BF 4.3 tuning notes (slider system) | `references/betaflight-docs/tuning-notes/betaflight-4.3-tuning-notes.md` |
 | BF 4.2 / 4.1 / 4.0 tuning notes | `references/betaflight-docs/tuning-notes/betaflight-4.2-tuning-notes.md` (and siblings) |
@@ -42,8 +40,12 @@ Read these files when the topic comes up. They are in `references/` relative to 
 | PIDtoolbox — BF 4.5 rapid tune | `references/youtube-transcript-summaries/pidtoolbox-bf4.5-pid-tuning-2.md` |
 | Release notes 4.4 / 4.5 / 2025.12 | `references/betaflight-docs/release-notes/` (three files) |
 | **Configurator PID tab (sliders, filters, UI↔CLI reference)** | `references/betaflight-docs/configurator-app/app-pid-tuning-tab.mdx` |
+| **Failsafe — configuration guide** | `references/betaflight-docs/guides/guides-failsafe.md` |
+| **GPS Rescue — 4.5 (most current)** | `references/betaflight-docs/guides/guides-gps-rescue-v4.5.md` |
+| GPS Rescue — 4.4 | `references/betaflight-docs/guides/guides-gps-rescue-v4.4.md` |
+| GPS Rescue — 4.1 to 4.3 | `references/betaflight-docs/guides/guides-gps-rescue-mode-v4.1-to-v4.3.md` |
 
-**When SKILL.md inline content is sufficient** (common tuning workflow, the 8-phase sequence, dynamic idle table, I-term relax cutoff table, symptom guide, key variable names) — trust it and skip loading reference files. Load references when: (a) the user asks about a specific variable or behaviour not covered inline, (b) you need to verify an exact range or default for a specific firmware version, or (c) the user's question requires feature-specific depth beyond the inline summary. When you do load reference files, read both the version-specific CLI doc(s) **and** the relevant feature guide — they complement each other and cover gaps that neither addresses alone.
+**When SKILL.md inline content is sufficient** (common tuning workflow, the 8-phase sequence, dynamic idle table, I-term relax cutoff table, symptom guide, key variable names) — trust it and skip loading reference files. Load references when: (a) the user asks about a specific variable or behaviour not covered inline, (b) you need to verify an exact range or default, or (c) the user's question requires feature-specific depth beyond the inline summary. For variable lookups, `development-cli-reference.md` is the single complete source of truth — load it directly. Load the raw CLI dumps (`betaflight-2025.12-cli-commands.md` / `betaflight-4.5-cli-commands.md`) only when you need exact numeric defaults for a specific firmware version. Load the feature guides alongside the CLI reference when deep feature context is needed.
 
 ---
 
@@ -374,9 +376,134 @@ Enable dynamic idle: `set dyn_idle_min_rpm = 30` (adjust per table; any nonzero 
 
 ---
 
+## Failsafe Configuration
+
+Always use **Flight Controller based failsafe** — configure the receiver to send *no data* (not fixed values) on signal loss. Receiver-based failsafe is not recommended because the FC cannot detect the link loss.
+
+### Three stages
+
+**Signal Validation** (100 ms): FC detects absence of data. Last values held for 300 ms, then Stage 1 activates. `RXLOSS` appears in OSD.
+
+**Stage 1 — Guard period**: Applies Channel Fallback Settings (sticks centered, throttle to configured value) for up to `failsafe_delay` (default 1.5 s in 4.5). Signal recovery during Stage 1 immediately restores full pilot control.
+
+> **Critical for GPS Rescue**: the default Stage 1 throttle fallback is zero — the quad will drop and crash before Rescue can activate. Set the Stage 1 throttle channel fallback to a hover value.
+
+**Stage 2**: entered when Stage 1 guard time expires. Three usable procedures:
+
+| Procedure | `failsafe_procedure` | Behaviour |
+|-----------|---------------------|-----------|
+| Drop (default) | `DROP` | Immediate disarm and motor stop |
+| Landing Mode | `AUTO-LAND` | Fixed throttle + centered sticks for `failsafe_off_delay`, then disarm. Not generally recommended. |
+| GPS Rescue | `GPS_RESCUE` | Autonomous return-to-home. See GPS Rescue section. |
+
+**"Just Drop" override**: if throttle has been low for ≥ 10 s before failsafe triggers, the FC immediately disarms regardless of the Stage 2 procedure (prevents Landing Mode spinning up props after a landed-but-disarmed pilot turns off their radio).
+
+### Recovery
+
+After Stage 2, signal must be stable for `failsafe_recovery_delay` (default 0.5 s in 4.5, 1.0 s in 4.4) before re-arm is allowed. For GPS Rescue, recovery also requires moving the sticks more than `failsafe_stick_threshold` degrees from center (default 30°). After disarm, the arm switch must be toggled off before re-arming — the OSD will show `NOT_DISARMED` as a reminder.
+
+### Failsafe switch modes
+
+Configure a mode switch in Configurator's Modes tab. `failsafe_switch_mode` controls behavior:
+- `STAGE1`: simulates signal loss, useful for testing. Aux channels remain active.
+- `STAGE2`: skips guard time, directly activates Stage 2 procedure. Good as a panic switch.
+- `KILL`: instant disarm, no delay. A single glitch crashes the quad — avoid unless intentional.
+
+### Key Failsafe CLI variables
+
+| Variable | Default | Notes |
+|----------|---------|-------|
+| `failsafe_delay` | 15 (1.5 s) | Stage 1 guard time in 0.1 s steps. Minimum 2 (200 ms). |
+| `failsafe_procedure` | `DROP` | `DROP`, `AUTO-LAND`, or `GPS_RESCUE` |
+| `failsafe_throttle` | 1000 | Landing Mode throttle (1000 = off). Set to hover value for GPS Rescue Stage 1 fallback. |
+| `failsafe_off_delay` | 10 (1 s) | Landing Mode duration in 0.1 s steps before final disarm |
+| `failsafe_recovery_delay` | 5 (0.5 s) | Signal-stable duration required before allowing re-arm |
+| `failsafe_stick_threshold` | 30 | Degrees of stick deflection needed to recover from GPS Rescue |
+| `failsafe_switch_mode` | `STAGE1` | `STAGE1`, `STAGE2`, or `KILL` |
+
+Load `references/betaflight-docs/guides/guides-failsafe.md` for full detail on bench testing procedure and stage-by-stage configuration.
+
+---
+
+## GPS Rescue
+
+GPS Rescue autonomously flies the quad toward home when activated (either by failsafe Stage 2, or a pilot switch). **It is a link-recovery tool, not a full RTH system** — the goal is to fly back into range so the pilot can retake control.
+
+### Prerequisites
+
+- GPS module required (UBlox M8N or better; M9/M10 recommended in 4.5). Prefer UBlox protocol over NMEA.
+- **Accelerometer must be enabled and calibrated**. Verify angle mode self-levels correctly before relying on GPS Rescue.
+- **Valid home point** must be established before flight — arm, wait for the OSD to show 0 m home distance, then fly.
+- Barometer optional but improves altitude accuracy.
+- Magnetometer optional. **Only enable if the heading reading has been verified accurate** (compare against phone compass). An incorrect mag is worse than no mag.
+- Minimum satellites: `gps_rescue_min_sats` (default 8). OSD shows `RESCUE N/A` if below minimum.
+- 3D mode is not supported.
+- In 4.5: use **8k4k** instead of 8k8k — the GPS task is CPU-intensive during rescue.
+
+### Rescue sequence
+
+1. Climb to configured altitude at `gps_rescue_ascend_rate`
+2. Rotate to point toward home
+3. Pitch forward and fly home at `gps_rescue_ground_speed`
+4. At `gps_rescue_descent_dist` from home, begin descending at `gps_rescue_descend_rate`
+5. Slow approach to home, reduce descent rate near ground
+6. Impact detection below landing altitude → auto-disarm on touchdown
+
+### Stage 1 throttle — critical for GPS Rescue
+
+The default Stage 1 throttle fallback is zero. If Stage 1 drops the quad before Rescue activates, the rescue will never run. Set the Stage 1 channel fallback for throttle to a hover value. Method: temporarily set Stage 2 to Landing Mode, adjust `failsafe_throttle` until the quad descends gently, use that value for both `failsafe_throttle` and the Stage 1 throttle channel fallback, then restore Stage 2 to GPS Rescue.
+
+### Regaining control during a rescue
+
+- **True signal-loss failsafe**: after `failsafe_recovery_delay`, wiggle sticks more than `failsafe_stick_threshold` (30°) to return control. **Do not touch sticks until video and `RXLOSS` have cleared.**
+- **Switch-induced rescue**: flip the switch back — control is returned immediately.
+
+### Key GPS Rescue CLI variables
+
+| Variable | Notes |
+|----------|-------|
+| `gps_rescue_initial_climb` | Altitude to climb before heading home (meters). Higher = safer over obstacles. |
+| `gps_rescue_return_alt` | Return cruise altitude (meters, 4.4+). If current alt is higher, quad maintains current alt. |
+| `gps_rescue_alt_mode` | `MAX_ALT` (default), `FIXED_ALT`, or `CURRENT_ALT` |
+| `gps_rescue_ascend_rate` | Climb rate cm/s (default 500) |
+| `gps_rescue_descend_rate` | Descent rate cm/s (default 150) |
+| `gps_rescue_ground_speed` | Return speed cm/s (default 2000 ≈ 72 km/h; try 1500 for reliability) |
+| `gps_rescue_max_angle` | Max tilt angle during return (default 32°; raise for headwinds) |
+| `gps_rescue_descent_dist` | Distance from home to start descent (meters, default 200) |
+| `gps_rescue_min_start_dist` | Minimum distance from home to activate (default 100 m; closer → disarm) |
+| `gps_rescue_min_sats` | Minimum satellite count to allow arming (default 8) |
+| `gps_rescue_sanity_checks` | `RESCUE_SANITY_ON` (recommended), `RESCUE_SANITY_FS_ONLY`, or `OFF` |
+| `gps_rescue_allow_arming_without_fix` | Allow arming without GPS fix (rescue unavailable during flight) |
+| `gps_rescue_use_mag` | Use magnetometer for heading (only enable if verified accurate) |
+| `gps_rescue_velocity_p/i/d` | Velocity PID controller — rarely needs adjustment |
+| `gps_rescue_yaw_p` | Yaw P gain during rescue |
+| `gps_rescue_imu_yaw_gain` | IMU yaw correction aggressiveness (4.5+) |
+| `gps_rescue_roll_mix` | Roll/yaw mix ratio during approach (4.5+) |
+| `gps_rescue_pitch_cutoff` | Pitch D smoothing (4.5+) |
+| `gps_rescue_disarm_threshold` | Auto-disarm sensitivity on landing impact (4.5+) |
+
+### Sanity checks
+
+Enable `gps_rescue_sanity_checks = RESCUE_SANITY_ON` whenever GPS Rescue is set as the failsafe procedure. Sanity checks abort the rescue (disarm and drop) if: GPS is lost, fix is invalid, quad has crashed, satellite count drops below minimum, or the quad is not approaching home. This prevents a sustained flyaway. Do not disable unless testing over water or in a controlled environment.
+
+### Testing procedure
+
+1. Bench test failsafe stages first (remove props, test Stage 1 throttle fallback, verify `RXLOSS` OSD)
+2. First flight: fly at least 100 m past `gps_rescue_descent_dist` in a straight line. Verify the home arrow points toward launch before activating rescue.
+3. Activate rescue via switch. Monitor: quad should climb, rotate, then fly home.
+4. Be ready to flip the switch off and resume control immediately if the quad does not point toward home.
+5. Test at progressively larger distances before relying on it as a failsafe.
+
+Load version-specific reference files for full parameter tables and version-specific behavior:
+- `references/betaflight-docs/guides/guides-gps-rescue-v4.5.md` (4.5 — most current)
+- `references/betaflight-docs/guides/guides-gps-rescue-v4.4.md` (4.4)
+- `references/betaflight-docs/guides/guides-gps-rescue-mode-v4.1-to-v4.3.md` (4.1–4.3)
+
+---
+
 ## Key CLI Variables Quick Reference
 
-For full documentation, read the CLI reference files. Most-used during tuning:
+For full documentation, read `references/betaflight-docs/general/development-cli-reference.md`. Most-used during tuning:
 
 **Filters:** `gyro_lpf1_static_hz`, `gyro_lpf2_static_hz`, `rpm_filter_q`, `rpm_filter_weights`, `rpm_filter_min_hz`, `rpm_filter_fade_range_hz`, `dyn_notch_count`, `dyn_notch_min_hz`, `dyn_notch_max_hz`, `dyn_notch_q`, `dterm_lpf1_type`, `dterm_lpf1_dyn_min_hz`, `dterm_lpf1_dyn_max_hz`, `dterm_lpf1_dyn_expo`, `yaw_lowpass_hz`
 
@@ -389,6 +516,10 @@ For full documentation, read the CLI reference files. Most-used during tuning:
 **TPA / misc:** `tpa_rate`, `tpa_breakpoint`, `tpa_mode`, `tpa_low_breakpoint`, `tpa_low_rate`, `tpa_low_always`, `pidsum_limit`, `pidsum_limit_yaw`, `throttle_boost`, `motor_output_limit`, `vbat_sag_compensation`, `thrust_linear`
 
 **Dynamic idle:** `dyn_idle_min_rpm` (set >0 to enable), `transient_throttle_limit` (set to 0 when using dynamic idle), `dshot_idle_value` (static floor percentage), `dyn_idle_p_gain`, `dyn_idle_i_gain`, `motor_poles` (magnet count on motor bell; default 14 for 5")
+
+**Failsafe:** `failsafe_procedure`, `failsafe_delay`, `failsafe_throttle`, `failsafe_off_delay`, `failsafe_recovery_delay`, `failsafe_switch_mode`, `failsafe_stick_threshold`
+
+**GPS Rescue:** `gps_rescue_initial_climb`, `gps_rescue_return_alt`, `gps_rescue_alt_mode`, `gps_rescue_ascend_rate`, `gps_rescue_descend_rate`, `gps_rescue_ground_speed`, `gps_rescue_max_angle`, `gps_rescue_descent_dist`, `gps_rescue_min_start_dist`, `gps_rescue_min_sats`, `gps_rescue_sanity_checks`, `gps_rescue_allow_arming_without_fix`, `gps_rescue_use_mag`, `gps_rescue_velocity_p`, `gps_rescue_velocity_i`, `gps_rescue_velocity_d`, `gps_rescue_yaw_p`, `gps_rescue_imu_yaw_gain`, `gps_rescue_roll_mix`, `gps_rescue_disarm_threshold`
 
 ---
 

@@ -4,22 +4,24 @@
  * src/generated/variables.ts with one get_<var> + set_<var> MCP tool pair
  * per CLI variable.
  *
- * Sources (fetched in parallel):
- *  - parameter_names.h  — resolves PARAM_NAME_* macros → CLI string names
- *  - settings.c         — authoritative variable list (~500 vars), types, ranges
- *  - Cli.md             — ~113 vars with human descriptions and defaults (enrichment)
+ * Sources:
+ *  - parameter_names.h        — resolves PARAM_NAME_* macros → CLI string names (fetched)
+ *  - settings.c               — authoritative variable list (~762 vars), types, ranges (fetched)
+ *  - development-cli-reference.md — descriptions and defaults (read from local plugin skill files)
  *
  * Run: pnpm generate
  */
 
-import { writeFileSync, mkdirSync } from 'fs';
+import { writeFileSync, mkdirSync, readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-const CLI_MD_URL =
-  'https://raw.githubusercontent.com/betaflight/betaflight.com/refs/heads/master/docs/development/Cli.md';
+const LOCAL_CLI_REF_PATH = join(
+  __dirname,
+  '../plugin/skills/betaflight-pid-tuning/references/betaflight-docs/general/development-cli-reference.md'
+);
 
 const PARAM_NAMES_URL =
   'https://github.com/betaflight/betaflight/raw/refs/heads/master/src/main/fc/parameter_names.h';
@@ -36,7 +38,7 @@ interface VarEntry {
   description: string;
   min: string;         // numeric string or '-'
   max: string;         // numeric string or '-'
-  defaultVal: string;  // from Cli.md or '-'
+  defaultVal: string;  // from local CLI reference or '-'
   type: string;        // "Master" | "Hardware" | "Profile" | "Rate Profile"
   datatype: string;    // "UINT8" | "UINT16" | "UINT32" | "INT8" | "INT16" | "INT32"
   mode: string;        // "LOOKUP" | "BITSET" | "ARRAY" | "STRING" | ""
@@ -44,11 +46,7 @@ interface VarEntry {
 
 interface CliMdEntry {
   description: string;
-  min: string;
-  max: string;
   defaultVal: string;
-  type: string;
-  datatype: string;
 }
 
 interface CEntry {
@@ -251,36 +249,29 @@ function parseCEntry(entry: string, paramNames: Map<string, string>): CEntry | n
 }
 
 // ---------------------------------------------------------------------------
-// Step 5 — Parse Cli.md into a Map
+// Step 5 — Parse local CLI reference into a Map
 // ---------------------------------------------------------------------------
 
-function parseCliMd(text: string): Map<string, CliMdEntry> {
+function parseLocalCliRef(text: string): Map<string, CliMdEntry> {
   const map = new Map<string, CliMdEntry>();
   if (!text) return map;
 
-  const tableStart = text.indexOf('| `Variable`');
-  if (tableStart === -1) {
-    process.stderr.write('[generate] WARNING: Could not find variable table in Cli.md\n');
-    return map;
-  }
-
-  const tableSection = text.slice(tableStart);
+  // Match table rows: | `varname` | default | range | description |
   const rowRegex =
-    /^\|\s*(?:\[)?`([^`]+)`(?:\]\([^)]*\))?\s*\|\s*([^|]*?)\s*\|\s*([^|]*?)\s*\|\s*([^|]*?)\s*\|\s*([^|]*?)\s*\|\s*([^|]*?)\s*\|\s*([^|]*?)\s*\|/gm;
+    /^\|\s*`([a-z][a-z0-9_]+)`\s*\|\s*([^|]*?)\s*\|\s*([^|]*?)\s*\|\s*([^|]+?)\s*\|/gm;
 
   let match: RegExpExecArray | null;
-  while ((match = rowRegex.exec(tableSection)) !== null) {
-    const [, name, description, min, max, defaultVal, type, datatype] = match;
-    if (!name || name.trim() === 'Variable') continue;
-    if (/^-+$/.test(name.trim())) continue;
-
+  while ((match = rowRegex.exec(text)) !== null) {
+    const [, name, defaultVal, , description] = match;
+    if (!name) continue;
+    // Strip markdown bold/italics for clean tool descriptions
+    const cleanDesc = (description ?? '')
+      .replace(/\*\*([^*]+)\*\*/g, '$1')
+      .replace(/\*([^*]+)\*/g, '$1')
+      .trim();
     map.set(name.trim(), {
-      description: description?.trim() ?? '',
-      min: min?.trim() ?? '-',
-      max: max?.trim() ?? '-',
+      description: cleanDesc,
       defaultVal: defaultVal?.trim() ?? '-',
-      type: type?.trim() ?? '',
-      datatype: datatype?.trim() ?? '',
     });
   }
 
@@ -394,12 +385,12 @@ function sanitizeName(name: string): string {
 // ---------------------------------------------------------------------------
 
 async function main(): Promise<void> {
-  // Fetch all three sources in parallel
-  const [cText, headerText, cliMdText] = await Promise.all([
+  // Fetch firmware sources in parallel; read local CLI reference from disk
+  const [cText, headerText] = await Promise.all([
     fetchText(SETTINGS_C_URL),
     fetchText(PARAM_NAMES_URL),
-    fetchText(CLI_MD_URL),
   ]);
+  const localRefText = readFileSync(LOCAL_CLI_REF_PATH, 'utf-8');
 
   const paramNames = parseParameterNames(headerText);
   process.stderr.write(`[generate] Resolved ${paramNames.size} PARAM_NAME_* macros\n`);
@@ -412,8 +403,8 @@ async function main(): Promise<void> {
     .filter((e): e is CEntry => e !== null);
   process.stderr.write(`[generate] Parsed ${rawCEntries.length} valid C entries\n`);
 
-  const cliMd = parseCliMd(cliMdText);
-  process.stderr.write(`[generate] Parsed ${cliMd.size} Cli.md entries\n`);
+  const cliMd = parseLocalCliRef(localRefText);
+  process.stderr.write(`[generate] Parsed ${cliMd.size} local CLI reference entries\n`);
 
   if (rawCEntries.length === 0) {
     process.stderr.write(
@@ -433,7 +424,7 @@ async function main(): Promise<void> {
   const lines: string[] = [];
   lines.push(`// src/generated/variables.ts — DO NOT EDIT — run \`pnpm generate\` to regenerate`);
   lines.push(`// Generated: ${new Date().toISOString()}`);
-  lines.push(`// Source: settings.c (${rawCEntries.length} entries) + Cli.md (${cliMd.size} descriptions)`);
+  lines.push(`// Source: settings.c (${rawCEntries.length} entries) + local CLI reference (${cliMd.size} descriptions)`);
   lines.push(``);
   lines.push(`import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';`);
   lines.push(`import { z } from 'zod';`);
@@ -458,7 +449,9 @@ async function main(): Promise<void> {
     lines.push(`  // ${toolName} — ${entry.type.trim()} — ${dt}`);
     lines.push(`  server.registerTool(`);
     lines.push(`    'get_${toolName}',`);
-    lines.push(`    { description: 'Get ${toolName}: ${desc}' },`);
+    lines.push(`    {`);
+    lines.push(`    description: 'Get ${toolName}: ${desc}',`);
+    lines.push(`    },`);
     lines.push(`    async () => {`);
     lines.push(`      const session = requireSession();`);
     lines.push(`      const result = await session.cliClient.execCommand('get ${toolName}');`);
