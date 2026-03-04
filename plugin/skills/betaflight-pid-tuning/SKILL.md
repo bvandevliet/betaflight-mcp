@@ -41,6 +41,7 @@ Read these files when the topic comes up. They are in `references/` relative to 
 | PIDtoolbox — BF 4.5 professional workflow | `references/youtube-transcript-summaries/pidtoolbox-bf4.5-pid-tuning-1.md` |
 | PIDtoolbox — BF 4.5 rapid tune | `references/youtube-transcript-summaries/pidtoolbox-bf4.5-pid-tuning-2.md` |
 | Release notes 4.4 / 4.5 / 2025.12 | `references/betaflight-docs/release-notes/` (three files) |
+| **Configurator PID tab (sliders, filters, UI↔CLI reference)** | `references/betaflight-docs/configurator-app/app-pid-tuning-tab.mdx` |
 
 **When SKILL.md inline content is sufficient** (common tuning workflow, the 8-phase sequence, dynamic idle table, I-term relax cutoff table, symptom guide, key variable names) — trust it and skip loading reference files. Load references when: (a) the user asks about a specific variable or behaviour not covered inline, (b) you need to verify an exact range or default for a specific firmware version, or (c) the user's question requires feature-specific depth beyond the inline summary. When you do load reference files, read both the version-specific CLI doc(s) **and** the relevant feature guide — they complement each other and cover gaps that neither addresses alone.
 
@@ -131,7 +132,7 @@ Before tuning, verify:
 
 ## Tuning Order
 
-**Hardware check → Filters → PID Baseline → PD Balance → Master Gain → I-term → Feed Forward → Dynamic Damping**
+**Hardware check → Filters → PID Baseline → Master Gain → PD Balance → I-term → Feed Forward → Dynamic Damping**
 
 Never skip filter tuning first — filter-induced phase delay directly limits achievable PID gains. More filtering = lower max safe gains.
 
@@ -164,7 +165,7 @@ Motor noise starts around 100 Hz and rises with throttle. Harmonics at 2× and 3
 Targets frame resonances — visible as **vertical stripes** (fixed-frequency peaks) in the blackbox spectrum.
 
 - If **no vertical stripes visible → disable it entirely**: `set dyn_notch_count = 0`. Eliminates unnecessary delay.
-- If resonances exist: set `dyn_notch_count` to match the number of peaks (usually 1–3)
+- If resonances exist: set `dyn_notch_count` to match the number of visible peaks. With RPM filtering active, 1–2 notches are sufficient; without RPM filtering, use 4–5.
 - `dyn_notch_min_hz`: ~25 Hz below the resonance, **never below 150 Hz** (ideally ≥200 Hz)
 - `dyn_notch_max_hz`: default ~600 Hz is fine; can be narrowed for better resolution
 - `dyn_notch_q`: increase until resonance just escapes the notch, then back off — don't exceed ~1000
@@ -206,9 +207,28 @@ Also:
 
 ---
 
-## Phase 3: PD Balance (Damping Slider)
+## Phase 3: Master Multiplier
 
-Finds the optimal P:D ratio. Keep all other sliders constant, vary **only the damping slider**.
+Establish the overall gain level *before* tuning the P:D ratio. This matters practically: at very low master the controller has too little authority for the step response to clearly express ratio effects. Starting here also surfaces gain-headroom problems early — if master won't climb past 0.8 before oscillating, that's a filter or hardware problem to solve before investing time in ratio sweeps.
+
+Start at **0.5** and increase in steps of **0.2**. Keep Dynamic Damping off and I-term at 0.1–0.2 (baseline values from Phase 2).
+
+**Primary metric: latency** (use cross-correlation lag in PID Toolbox). Stop when:
+- Latency plateaus (diminishing returns)
+- Spectral peaks emerge between **40–70 Hz** (sign of PID oscillation building)
+- Audible trilling or oscillations during flight
+
+High-KV / powerful motors need *lower* master (faster motor response compensates). If master hits 2.0 ceiling: double both P&I and D sliders → reset master to 1.0 (equivalent gains, new headroom).
+
+**Noise floor targets** in spectral analyzer:
+- Gyro: below **−30 dB**
+- D-term: below **−10 dB** (above 0 dB risks motor damage or flyaway)
+
+---
+
+## Phase 4: PD Balance (Damping Slider)
+
+With master established, find the optimal P:D ratio. The P:D ratio is mathematically invariant to master scaling — the ratio sweep can be done at any gain level — but doing it after Phase 3 means you're evaluating it at the actual operating point the quad will fly. Keep all other sliders constant, vary **only the damping slider**.
 
 Sweep: `0.6 → 0.8 → 1.0 → 1.2 → 1.4 → 1.6` — one 20–30 second flight per value with controlled wobble inputs.
 - **Hold the stick, don't let it snap back** — clean step inputs produce clean step response traces.
@@ -221,26 +241,7 @@ Sweep: `0.6 → 0.8 → 1.0 → 1.2 → 1.4 → 1.6` — one 20–30 second flig
 | Rises to 1.0, minimal overshoot, flat | Optimal | Use this value |
 | Slow rise, over-damped | D too high | Decrease damping slider |
 
-Pick the value where overshoot just disappears. Erring slightly toward more D improves propwash resistance. Pitch often needs independent compensation via the pitch damping slider (pitch inertia is higher due to frame geometry).
-
----
-
-## Phase 4: Master Multiplier
-
-With P:D ratio locked, scale overall gains. This sets the "volume" of the PID controller — step response curve shape stays constant, only latency changes.
-
-Sweep: `0.6 → 0.8 → 1.0 → 1.2 → 1.4 → 1.6`
-
-**Primary metric: latency** (use cross-correlation lag in PID Toolbox). Stop when:
-- Latency plateaus (diminishing returns)
-- Spectral peaks emerge between **40–70 Hz** (sign of PID oscillation building)
-- Audible trilling or oscillations during flight
-
-High-KV / powerful motors need *lower* master (faster motor response compensates). If master hits 2.0 ceiling: double both P&I and D sliders → reset master to 1.0 (equivalent gains, new headroom).
-
-**Noise floor targets** in spectral analyzer:
-- Gyro: below **−30 dB**
-- D-term: below **−10 dB** (above 0 dB risks motor damage or flyaway)
+Pick the value where overshoot just disappears. Erring slightly toward more D improves propwash resistance. Pitch often needs independent compensation via the pitch damping slider (pitch inertia is higher due to frame geometry). If pitch nose bobble persists after damping adjustments, use the **pitch tracking slider** to increase P and I on pitch independently — also consider raising `anti_gravity_gain` alongside it.
 
 ---
 
@@ -289,7 +290,7 @@ Sub-settings:
 - `feedforward_boost` (default 15): adds acceleration-based component. Increase if gyro lags at move *start*; decrease if gyro leads at start.
 - `feedforward_max_rate_limit` (default 90): cuts FF as sticks near max deflection. Raise to 92–95 for crisp move entry on responsive builds.
 - `feedforward_jitter_factor` (BF 4.3+): higher = smoother during slow-stick inputs; lower = snappier for racing.
-- `feedforward_transition` (default 0): blends FF toward zero near stick center, giving a more locked-in center feel. Racing: 0 (full FF throughout); Freestyle/HD: 40; Cinematic: 70.
+- `feedforward_transition` (default 0): blends FF toward zero near stick center, giving a more locked-in center feel. Racing: 0 (full FF throughout); Freestyle/HD: 40; Cinematic: 70. **Set to 0 whenever `feedforward_jitter_factor` is active** — jitter reduction replaces transition for slow-stick smoothing and the two should not be combined.
 
 Note on Crossfire 50 Hz: FF above 1.0 can disrupt the optimal P:D ratio due to the 50 Hz RC link artifact in gyro traces. Keep FF ≤1.0 on Crossfire.
 
@@ -316,6 +317,8 @@ Tune with `set debug_mode = D_MIN` in blackbox and verify the D_MIN trace:
 
 Adjust `d_min_boost_gain` to control how aggressively D boosts from floor to peak on sharp moves. **`d_min_advance` must always stay at 0.**
 
+**Important:** `d_min_boost_gain` must remain above ~20 (the default is fine). If both `d_min_boost_gain` and `d_min_advance` are zero, D is locked at the D_min floor and will never boost toward D_max — the Dynamic Damping feature is effectively disabled.
+
 ---
 
 ## Phase 8: TPA
@@ -331,6 +334,17 @@ Use only if high-throttle oscillations persist after filters and PID are tuned.
 - `tpa_low_breakpoint` (default 1050): throttle level below which attenuation begins
 - `tpa_low_rate` (default 20): D reduction percentage at minimum throttle
 - `tpa_low_always` (default OFF): when OFF, active only before Airmode activates; when ON, active throughout the entire flight
+
+---
+
+## Motor & Power Settings
+
+These are not PID gains but directly affect flight quality and motor health:
+
+- **`vbat_sag_compensation`** (default 0): compensates for voltage sag as battery depletes, keeping throttle and PID authority consistent across a pack. **90% is a good target** — full 100% compensation at low voltage demands more from the motors at exactly the point where the pack is already under the most stress, which draws more current and accelerates depletion further. 90% delivers most of the consistency benefit while leaving a slight natural taper at the bottom. Since compensation removes the throttle softening that would otherwise signal a depleting pack, configure a low-voltage OSD warning, a battery alarm on your transmitter, or cell voltage telemetry alerts on your RC link.
+- **`motor_output_limit`** (default 100): reduces per-motor drive signal. Useful when running a higher cell count than the motors were designed for (e.g. 6S on a 4S build → try 66%).
+- **`thrust_linear`** (default 0): improves low-throttle authority and responsiveness, especially useful for whoops and builds running 48 kHz ESCs. Has no effect at higher throttle. **20–40% is typically enough**; avoid going higher without reason.
+- **`throttle_boost`**: transiently boosts throttle on fast throttle inputs for a more immediate throttle feel.
 
 ---
 
@@ -372,7 +386,7 @@ For full documentation, read the CLI reference files. Most-used during tuning:
 
 **Feed forward:** `feedforward_boost`, `feedforward_max_rate_limit`, `feedforward_jitter_factor`, `feedforward_averaging`, `feedforward_smooth_factor`, `feedforward_transition`
 
-**TPA / misc:** `tpa_rate`, `tpa_breakpoint`, `tpa_mode`, `tpa_low_breakpoint`, `tpa_low_rate`, `tpa_low_always`, `pidsum_limit`, `pidsum_limit_yaw`, `throttle_boost`, `motor_output_limit`, `vbat_sag_compensation`, `thrust_linearisation`
+**TPA / misc:** `tpa_rate`, `tpa_breakpoint`, `tpa_mode`, `tpa_low_breakpoint`, `tpa_low_rate`, `tpa_low_always`, `pidsum_limit`, `pidsum_limit_yaw`, `throttle_boost`, `motor_output_limit`, `vbat_sag_compensation`, `thrust_linear`
 
 **Dynamic idle:** `dyn_idle_min_rpm` (set >0 to enable), `transient_throttle_limit` (set to 0 when using dynamic idle), `dshot_idle_value` (static floor percentage), `dyn_idle_p_gain`, `dyn_idle_i_gain`, `motor_poles` (magnet count on motor bell; default 14 for 5")
 

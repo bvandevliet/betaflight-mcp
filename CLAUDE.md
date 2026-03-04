@@ -82,6 +82,16 @@ Output is `src/generated/variables.ts` — **committed to git**, so the server c
 - All diagnostic/debug output goes to `process.stderr` — stdout is reserved for MCP JSON-RPC.
 - Use `server.registerTool()` — not the deprecated `server.tool()`.
 
+## Plugin & Skills
+
+The `plugin/` directory configures this repo as a Claude Code plugin. The primary skill is:
+
+- **`plugin/skills/betaflight-pid-tuning/SKILL.md`** — Expert Betaflight PID/filter tuning assistant with full Betaflight domain knowledge. Load this when working on any task involving Betaflight configuration, CLI variables, PID tuning, MCP tool behaviour, or flight controller integration. It documents the full set of CLI variables, tuning methodology, and MCP tool usage patterns.
+
+Reference docs for the skill live in `plugin/skills/betaflight-pid-tuning/references/`:
+- `betaflight-docs/` — official CLI references, tuning notes, feature guides
+- `youtube-transcript-summaries/` — Chris Rosser and PIDtoolbox methodology summaries
+
 ## Reference sources
 
 When implementing new MSP tools or fixing protocol issues, refer to the upstream Betaflight Configurator source:
