@@ -235,31 +235,30 @@ export function registerSystemTools(server: McpServer): void {
   server.registerTool(
     'get_current_profile',
     {
-      description:
-        'Get the currently active PID profile index and rate profile index. ' +
-        'Note: call this before any CLI tools in the same session.',
+      description: 'Get the currently active PID profile index and rate profile index.',
     },
     async () => {
       try {
-        const session = requireSession();
-        const release = await session.lock();
-        try {
-          const buf = await session.mspClient.request(MspCodes.MSP_STATUS_EX);
-          const status = parseStatusEx(buf);
+        const { cliClient } = requireSession();
+        const profileOut = await cliClient.execCommand('profile');
+        const rateOut = await cliClient.execCommand('rateprofile');
+        const pidMatch = profileOut.match(/\d+/);
+        const rateMatch = rateOut.match(/\d+/);
+        if (!pidMatch || !rateMatch) {
           return textResult(
-            JSON.stringify(
-              {
-                pidProfileIndex: status.pidProfileIndex,
-                rateProfileIndex: status.rateProfileIndex,
-                numProfiles: status.numProfiles,
-              },
-              null,
-              2,
-            ),
+            `Unexpected CLI output.\nprofile: ${profileOut}\nrateprofile: ${rateOut}`,
           );
-        } finally {
-          release();
         }
+        return textResult(
+          JSON.stringify(
+            {
+              pidProfileIndex: parseInt(pidMatch[0], 10),
+              rateProfileIndex: parseInt(rateMatch[0], 10),
+            },
+            null,
+            2,
+          ),
+        );
       } catch (err) {
         return errorResult(err);
       }
