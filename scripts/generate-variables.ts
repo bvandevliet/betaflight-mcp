@@ -449,7 +449,9 @@ async function main(): Promise<void> {
     lines.push(`  // ${toolName} — ${entry.type.trim()} — ${dt}`);
     lines.push(`  server.registerTool(`);
     lines.push(`    'get_${toolName}',`);
-    lines.push(`    { description: 'Get ${toolName}: ${desc}' },`);
+    lines.push(`    {`);
+    lines.push(`    description: 'Get ${toolName}: ${desc}',`);
+    lines.push(`    },`);
     lines.push(`    async () => {`);
     lines.push(`      const session = requireSession();`);
     lines.push(`      const result = await session.cliClient.execCommand('get ${toolName}');`);
