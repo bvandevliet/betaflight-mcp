@@ -16,13 +16,11 @@ You are an expert Betaflight FPV quad tuning assistant with access to the Betafl
 
 Read these files when the topic comes up. They are in `references/` relative to this skill directory.
 
-**CLI reference strategy**: No single file documents everything. The development CLI reference (`development-cli-reference.md`) covers the general variable list but is often incomplete or stale for newer variables. Always cross-reference it with the version-specific CLI docs and the relevant feature-specific guide for the area you are working in.
-
 | Topic | File |
 |-------|------|
-| **CLI variable list (general, may be incomplete)** | `references/betaflight-docs/general/development-cli-reference.md` |
-| **CLI commands — 2025.12 (most current, highest priority)** | `references/betaflight-docs/general/betaflight-2025.12-cli-commands.md` |
-| **CLI commands — 4.5 (use alongside 2025.12)** | `references/betaflight-docs/general/betaflight-4.5-cli-commands.md` |
+| **CLI variable reference (complete — all variables with descriptions, defaults, ranges)** | `references/betaflight-docs/general/development-cli-reference.md` |
+| **CLI commands — 2025.12 raw dump (ranges, defaults, no descriptions)** | `references/betaflight-docs/general/betaflight-2025.12-cli-commands.md` |
+| **CLI commands — 4.5 raw dump (ranges, defaults, no descriptions)** | `references/betaflight-docs/general/betaflight-4.5-cli-commands.md` |
 | PID theory fundamentals | `references/betaflight-docs/general/development-pid-tuning.md` |
 | BF 4.3 tuning notes (slider system) | `references/betaflight-docs/tuning-notes/betaflight-4.3-tuning-notes.md` |
 | BF 4.2 / 4.1 / 4.0 tuning notes | `references/betaflight-docs/tuning-notes/betaflight-4.2-tuning-notes.md` (and siblings) |
@@ -47,7 +45,7 @@ Read these files when the topic comes up. They are in `references/` relative to 
 | GPS Rescue — 4.4 | `references/betaflight-docs/guides/guides-gps-rescue-v4.4.md` |
 | GPS Rescue — 4.1 to 4.3 | `references/betaflight-docs/guides/guides-gps-rescue-mode-v4.1-to-v4.3.md` |
 
-**When SKILL.md inline content is sufficient** (common tuning workflow, the 8-phase sequence, dynamic idle table, I-term relax cutoff table, symptom guide, key variable names) — trust it and skip loading reference files. Load references when: (a) the user asks about a specific variable or behaviour not covered inline, (b) you need to verify an exact range or default for a specific firmware version, or (c) the user's question requires feature-specific depth beyond the inline summary. When you do load reference files, read both the version-specific CLI doc(s) **and** the relevant feature guide — they complement each other and cover gaps that neither addresses alone.
+**When SKILL.md inline content is sufficient** (common tuning workflow, the 8-phase sequence, dynamic idle table, I-term relax cutoff table, symptom guide, key variable names) — trust it and skip loading reference files. Load references when: (a) the user asks about a specific variable or behaviour not covered inline, (b) you need to verify an exact range or default, or (c) the user's question requires feature-specific depth beyond the inline summary. For variable lookups, `development-cli-reference.md` is the single complete source of truth — load it directly. Load the raw CLI dumps (`betaflight-2025.12-cli-commands.md` / `betaflight-4.5-cli-commands.md`) only when you need exact numeric defaults for a specific firmware version. Load the feature guides alongside the CLI reference when deep feature context is needed.
 
 ---
 
@@ -505,7 +503,7 @@ Load version-specific reference files for full parameter tables and version-spec
 
 ## Key CLI Variables Quick Reference
 
-For full documentation, read the CLI reference files. Most-used during tuning:
+For full documentation, read `references/betaflight-docs/general/development-cli-reference.md`. Most-used during tuning:
 
 **Filters:** `gyro_lpf1_static_hz`, `gyro_lpf2_static_hz`, `rpm_filter_q`, `rpm_filter_weights`, `rpm_filter_min_hz`, `rpm_filter_fade_range_hz`, `dyn_notch_count`, `dyn_notch_min_hz`, `dyn_notch_max_hz`, `dyn_notch_q`, `dterm_lpf1_type`, `dterm_lpf1_dyn_min_hz`, `dterm_lpf1_dyn_max_hz`, `dterm_lpf1_dyn_expo`, `yaw_lowpass_hz`
 
