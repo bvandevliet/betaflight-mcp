@@ -17,15 +17,40 @@ This repo ships a Claude Code plugin in the `plugin/` directory, which bundles:
 
 ### Install the plugin
 
-In Claude Code settings, add a local plugin pointing to the `plugin/` directory in this repo.
+**1. Build the server** (required before first use):
 
-Then run the setup command to configure the server path for your machine:
+```bash
+pnpm install
+pnpm build
+```
+
+**2. Add the local marketplace** — in Claude Code, run:
+
+```
+/plugin marketplace add /path/to/betaflight-mcp
+```
+
+Replace `/path/to/betaflight-mcp` with the absolute path to your cloned repository (the repo root, not the `plugin/` subdirectory).
+
+**3. Install the plugin** — run `/plugin` to open the plugin manager, go to the **Discover** tab, find `betaflight-mcp`, and install it.
+
+**4. Configure the server path** — run the setup command:
 
 ```
 /betaflight-mcp-setup
 ```
 
-This replaces the placeholder in `plugin/.mcp.json` with the absolute path to `dist/server.js` on your machine. Run it once after cloning and building. Restart Claude Code afterwards.
+This replaces the placeholder in the cached plugin's `.mcp.json` with the absolute path to `dist/server.js` on your machine. The repo's `plugin/.mcp.json` is left untouched so the placeholder stays clean for git. Restart Claude Code afterwards.
+
+### Updating the plugin
+
+After pulling new changes from the repo, rebuild and reinstall the plugin:
+
+```bash
+pnpm build
+```
+
+Then in Claude Code, go to `/plugin` → **Installed** tab, uninstall `betaflight-mcp`, switch to **Discover**, and reinstall it. Run `/betaflight-mcp-setup` again afterwards — reinstalling overwrites the cached `.mcp.json` with the placeholder.
 
 > **Claude Desktop users:** The plugin system is a Claude Code (CLI) feature and is not available in Claude Desktop. Claude Desktop users configure the MCP server manually via `claude_desktop_config.json` (see platform-specific setup below) — this gives full access to all ~1554 tools. The PID tuning skill does not auto-activate in Claude Desktop; as a workaround, create a [Claude Project](https://support.anthropic.com/en/articles/9517075-what-are-projects) and attach `plugin/skills/betaflight-pid-tuning/SKILL.md` as project knowledge so it is always in context.
 
