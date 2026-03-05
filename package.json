@@ -1,6 +1,6 @@
 {
   "name": "betaflight-mcp",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Betaflight MCP server with expert FPV drone PID tuning skill",
   "type": "module",
   "main": "dist/server.js",

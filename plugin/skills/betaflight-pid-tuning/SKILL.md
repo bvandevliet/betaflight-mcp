@@ -122,7 +122,7 @@ Before tuning, verify:
 
 3. **Blackbox configured**: device (`set blackbox_device = SPIFLASH` or `SDCARD`). Sample rate formula: **half the gyro update frequency, but minimum 1 kHz**. E.g. at 3.2kHz gyro, target 1.6kHz; at 8kHz gyro, use 1/8 = 1kHz. `set blackbox_sample_rate = 1/N` where N = gyro_hz / target_hz.
 
-4. **Debug mode**: BF 4.5+: `set debug_mode = FFT_FRQ`; older: `set debug_mode = GYRO_SCALED`
+4. **Debug mode**: BF 4.5+: `set debug_mode = FFT_FREQ`; older: `set debug_mode = GYRO_SCALED`
 
 5. **Radio preset applied**: Apply via Configurator Presets tab for your RC link (ELRS 250Hz, ELRS 500Hz, Crossfire 50Hz, etc.). This auto-configures RC smoothing and feedforward filtering.
 

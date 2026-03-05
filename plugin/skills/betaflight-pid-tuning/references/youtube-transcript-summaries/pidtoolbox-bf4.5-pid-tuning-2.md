@@ -10,7 +10,7 @@ https://www.youtube.com/watch?v=ehvQm8Rqrzk
 **[00:00:00]** Prerequisites and initial configuration:
 - Use **angle mode** with a dedicated tuning rate profile (150 centre sensitivity / 150 max rate → linear rate curve)
 - Reduce angle limit to **30°** for manageable indoor/outdoor testing
-- Set blackbox debug mode to **FFT_FRQ** (Betaflight 4.5+; pre-filtered gyro is always logged, so `GYRO_SCALED` is no longer needed)
+- Set blackbox debug mode to **FFT_FREQ** (Betaflight 4.5+; pre-filtered gyro is always logged, so `GYRO_SCALED` is no longer needed)
 - Use an **auto wobble script** on EdgeTX/OpenTX to automate stick inputs consistently
 
 ---
