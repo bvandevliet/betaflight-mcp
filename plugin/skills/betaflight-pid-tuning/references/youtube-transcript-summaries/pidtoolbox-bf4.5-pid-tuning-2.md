@@ -1,104 +1,315 @@
-# Betaflight Rapid PID Tune Using PID Toolbox
-https://www.youtube.com/watch?v=ehvQm8Rqrzk
+# Rapid Betaflight PID Tuning with PID Toolbox (1–2 Battery Packs)
 
-**Overview:** A practical walkthrough of tuning a 5" FPV drone using Betaflight 4.5 and PID Toolbox, covering filter optimisation followed by a structured three-step PID tuning sequence — all achievable within one or two battery packs.
-
----
-
-## Setup & Preparation
-
-**[00:00:00]** Prerequisites and initial configuration:
-- Use **angle mode** with a dedicated tuning rate profile (150 centre sensitivity / 150 max rate → linear rate curve)
-- Reduce angle limit to **30°** for manageable indoor/outdoor testing
-- Set blackbox debug mode to **FFT_FREQ** (Betaflight 4.5+; pre-filtered gyro is always logged, so `GYRO_SCALED` is no longer needed)
-- Use an **auto wobble script** on EdgeTX/OpenTX to automate stick inputs consistently
+This video demonstrates a **fast, practical workflow for tuning Betaflight PID settings using PID Toolbox**, designed to produce significant flight performance improvements in **one or two battery packs**. The process combines **blackbox logging, spectral analysis, and automated wobble tests** to tune filters and optimize PID relationships systematically.
 
 ---
 
-## Filter Optimisation
+# 1. Initial Setup for Rapid Testing
 
-### Steady Hover Analysis
+## [00:00:00] Preparing Betaflight and Radio
 
-**[00:01:29]** Perform a 30–40 second steady hover and analyse the spectrum in PID Toolbox:
-- Plot pre- and post-filtered gyro in the spectral analyser
-- Overlay **RPM harmonics** to distinguish motor noise from resonance peaks
-- Findings on this build: strong 1st and 3rd harmonics, a resonance peak between 1st and 2nd harmonics, negligible 2nd harmonic
+Key configuration steps before tuning:
 
-### Filter Adjustments
+* Use **Angle Mode** for easier controlled testing.
+* Set **Angle Limit to 30°** to prevent aggressive motion during wobble tests.
+* Create a **linear rate profile**:
 
-**[00:04:34]** Changes made based on hover analysis:
-- **Disable gyro lowpass 1** (turn off LPF1, not LPF2)
-- **Increase dynamic notch count to 3** to address the roll resonance peak
-- **Raise dynamic notch minimum frequency to 150 Hz** and tighten the range to constrain notch placement
-- **Raise RPM filter Q factor from 500 → 1000** via CLI (`set rpm_filter_q = 1000`) — significant filter delay saving
-- **Reduce RPM filter weights** for the 2nd harmonic: `set rpm_filter_weights = 100,25,100` — full weight on 1st and 3rd, reduced on 2nd where little noise was present
+  * Center sensitivity: **150**
+  * Max rate: **150**
+* Linear rates make motion predictable and allow testing **even in small spaces**.
+* Filters start **fully stock**.
 
-**[00:07:09]** Result: gyro filter delay reduced to **~2.0 ms** and trending lower after further adjustments.
+A radio script called **Auto Wobble** is used to generate consistent oscillations automatically during tests.
 
 ---
 
-## PID Tuning — Three-Step Process
+# 2. Baseline Hover Test and Noise Analysis
 
-### Slider Preparation
+## [00:01:29] Perform a 30–40s Steady Hover
 
-**[00:08:19]** Before flying, configure the simplified tuning sliders:
-- **Stick response (feedforward) → 0** (eliminate FF influence during testing)
-- **Dynamic damping → off** (keep D-max and D values static)
-- **I term → reduced** (avoid confusing I-term overshoot with insufficient D)
-- **Pitch damping → 0.9** (match roll, removing default asymmetry for initial tests)
-- **Master multiplier** → start at ~0.8–1.0 for a typical 5"; drop to 0.7–0.8 for high-powered rigs
+Purpose of the hover test:
 
----
+* Capture **clean spectral data without pilot inputs**
+* Detect:
 
-### Step 1 — PD Balance (Damping Slider)
+  * Motor noise
+  * Frame resonances
+  * Electrical or gyro issues
 
-**[00:09:00]** Vary the **damping slider** across four runs: `0.6 → 0.8 → 1.0 → 1.2`
+Blackbox configuration:
 
-**[00:13:21]** Step response results:
-- 0.6 (red): clear overshoot
-- 0.8 (orange): improved
-- 1.0 (yellow): well-damped ✓
-- 1.2 (green): over-damped
-
-**Decision:** Use **1.0** — erring towards slightly more D improves **propwash performance**.
+* Debug mode: **FFT_FRQ**
+* Allows visibility into **dynamic notch filter activity**.
 
 ---
 
-### Step 2 — Master Multiplier
+# 3. Spectral Analysis in PID Toolbox
 
-**[00:14:52]** Vary master multiplier: `0.6 → 0.8 → 1.0 → 1.2 → 1.4 → 1.6`
+## [00:03:01] Identify Noise Sources
 
-**Metric: latency** (use cross-correlation latency in PID Toolbox for accuracy)
+Steps:
 
-**[00:15:34]** Results:
-- Clear latency drop as master increases, then plateau
-- **1.6**: obvious oscillations in step response — discard
-- **1.4**: ripple visible — discard
-- **1.2**: slight ripple, acceptable upper bound
+1. Load the hover log.
+2. Use **Spectral Analyzer**.
+3. Plot:
 
-**Decision:** Set master multiplier to **1.2**.
+   * **Pre-filter gyro**
+   * **Post-filter gyro**
+4. Overlay **RPM harmonics**.
 
-> **Why master before I term?** Higher master multiplier collapses the P error between setpoint and gyro, reducing opportunity for I-term windup — making the subsequent I-term tests cleaner.
+Observations from example log:
+
+* **Strong first motor harmonic**
+* **Third harmonic present**
+* **Minimal second harmonic**
+* **Resonance peak between harmonics**
+
+Interpretation:
+
+* Motor filtering works well.
+* Frame resonance requires **dynamic notch filtering**.
 
 ---
 
-### Step 3 — PI Balance (I Term)
+# 4. Optimizing Filters
 
-**[00:17:03]** Vary PI tracking slider: `0.5 → 1.0 → 1.5 → 2.0`
+## [00:04:34] Reduce Unnecessary Filtering
 
-**[00:17:43]** Results: **no measurable difference** across all values on this lightweight build — the low all-up weight means P error is minimal and I term has nothing to accumulate.
+Goal: **minimum filtering required for stability**.
 
-**Decision:** Set **I term back to 1.0**, feedforward back to **1.0**, tune complete.
+Adjustments made:
+
+* Disable **Gyro Lowpass 1** (keep Lowpass 2).
+* Increase **Dynamic Notch count to 3**.
+* Reduce RPM filter impact on weak harmonic.
+
+CLI change:
+
+```
+set rpm_filter_weights = 100,25,100
+save
+```
+
+Meaning:
+
+* 1st harmonic: full filtering
+* 2nd harmonic: reduced filtering
+* 3rd harmonic: full filtering
+
+Result: **lower filter delay while maintaining noise suppression**.
 
 ---
 
-## Conclusion
+# 5. Verify Filter Improvements
 
-A full filter and PID tune is achievable in one pack using a systematic hover-first approach. The core sequence is:
+## [00:06:18] Second Hover Test
 
-1. **Characterise noise** via steady hover → adjust filters to minimise delay while addressing resonance
-2. **Optimise PD ratio** via damping slider sweeps → target minimal overshoot without over-damping
-3. **Find P gain ceiling** via master multiplier sweeps → use latency as the primary metric, stop before oscillation
-4. **Validate I term** → on light 5" builds it rarely requires adjustment
+Comparison reveals:
 
-Final PIDs and filter settings are reviewed at **[00:18:20]**.
+* Resonance peaks significantly reduced.
+* D-term noise clearer in logs.
+
+Indicators of resonance:
+
+* Spikes in **D-term plots**
+* Thickening of **motor command signals**
+
+After adjustments:
+
+* Dynamic notch filters effectively suppress resonance.
+
+---
+
+# 6. Further Filter Delay Optimization
+
+## [00:07:09] Lower Gyro Delay
+
+Goal: **reduce filter latency below ~2 ms**.
+
+Additional changes:
+
+* Increase **dynamic notch minimum frequency to 150 Hz**
+* Narrow notch operating range
+* Increase notch width (Q adjustments)
+
+CLI improvement:
+
+```
+set rpm_filter_q = 1000
+```
+
+Effect:
+
+* Reduces filter delay while maintaining RPM noise rejection.
+
+---
+
+# 7. PID Tuning Strategy
+
+## [00:08:21] Three-Step Tuning Framework
+
+PID tuning follows three optimization steps:
+
+1. **PD Balance**
+2. **Master Multiplier**
+3. **PI Balance**
+
+Key metrics used:
+
+* **Step response overshoot**
+* **Response latency**
+
+---
+
+# 8. Step 1 — PD Ratio Optimization
+
+## [00:09:00] Damping Slider Tests
+
+Test parameters:
+
+* Damping values tested:
+  **0.6 → 0.8 → 1.0 → 1.2**
+
+Additional preparation:
+
+* Disable feedforward.
+* Disable dynamic damping.
+* Reduce I-term temporarily.
+
+Auto wobble generates consistent motion while logs are recorded.
+
+### Results (Step Response)
+
+## [00:13:14]
+
+Observations:
+
+* Overshoot decreases as damping increases.
+* **1.2 becomes overdamped**.
+* Best options:
+
+  * **0.8**
+  * **1.0**
+
+Final choice:
+
+**Damping = 1.0**
+
+Reason:
+
+* Slightly higher D improves **propwash handling**.
+
+---
+
+# 9. Step 2 — Master Multiplier
+
+## [00:15:03]
+
+Purpose:
+
+Adjust **overall PID strength**.
+
+Tests performed:
+
+* Master values:
+
+  * 0.6
+  * 0.8
+  * 1.0
+  * 1.2
+  * 1.4
+  * 1.6
+
+Evaluation metric:
+
+**Latency using cross-correlation analysis.**
+
+### Observations
+
+## [00:16:10]
+
+* Latency decreases as master increases.
+* At higher values oscillations begin:
+
+  * **1.6 clearly oscillates**
+  * **1.4 shows ripple**
+
+Final selection:
+
+**Master Multiplier = 1.2**
+
+Provides low latency without oscillation.
+
+---
+
+# 10. Step 3 — PI Ratio
+
+## [00:17:01]
+
+Purpose:
+
+Ensure I-term does not cause:
+
+* Windup
+* Overshoot
+
+Tests:
+
+* I-term multiplier from **0.5 → 2.0**
+
+### Result
+
+No visible differences in step responses.
+
+Reason:
+
+* Small, lightweight drone
+* Low accumulated PID error
+
+Final setting:
+
+**I-term = 1.0 (default)**
+
+Feedforward restored to **1.0**.
+
+---
+
+# 11. Final PID and Filter Configuration
+
+## [00:18:20]
+
+Final setup includes:
+
+**Filter adjustments**
+
+* Gyro Lowpass 1 disabled
+* Dynamic notch count: **3**
+* Dynamic notch min freq: **150 Hz**
+* RPM filter weights: **100 / 25 / 100**
+* RPM filter Q increased
+
+**PID tuning results**
+
+* Damping: **1.0**
+* Master multiplier: **1.2**
+* I-term: **1.0**
+* Feedforward: **1.0**
+
+---
+
+# Key Takeaways
+
+* **A simple hover log can reveal critical resonance issues.**
+* **Spectral analysis helps determine exactly which filters are needed.**
+* PID tuning should follow a structured order:
+
+  1. PD balance
+  2. Master multiplier
+  3. PI balance
+* **Step response analysis** is the most reliable tuning metric.
+* With this workflow, a well-performing tune can be achieved **within 1–2 battery packs**.
+
+---
+
+**Conclusion:**
+Efficient Betaflight tuning relies on **data-driven adjustments rather than trial-and-error**. By combining spectral noise analysis, auto wobble testing, and step-response evaluation, pilots can quickly optimize filters and PID behavior to achieve responsive, stable flight performance.
