@@ -85,6 +85,10 @@ The MCP server runs alongside this session and exposes these tools:
 - `get_mixer`, `get_serial_config`, `get_aux_config`, `get_channel_map`
 - `motor_get` / `motor_set` — read/drive motors (armed state)
 
+### Simplified Tuning Sliders
+- `get_pid_sliders` — read current slider values as floats (1.0 = default/100%). Returns `master`, `roll_pitch_ratio`, `i_gain`, `d_gain`, `pi_gain`, `dmax_gain`, `feedforward`, `pitch_pi`, and `pids_mode`.
+- `set_pid_sliders` — set one or more sliders by float value; the FC immediately recalculates actual P/I/D gains (equivalent to moving a slider in Configurator). Provide only the fields to change; all others keep current values. Automatically enables simplified tuning if disabled. Call `cli_save` to persist. Example: `set_pid_sliders({ master: 1.2, i_gain: 0.1, feedforward: 0 })`
+
 ### Variable Tools (760+ available)
 Each CLI variable has dedicated `get_<varname>` and `set_<varname>` tools, e.g.:
 - `get_master_multiplier` / `set_master_multiplier`
@@ -235,23 +239,24 @@ Yaw is torque-based (inherently slower), so filter delay is less critical here. 
 
 ## Phase 2: PID Baseline
 
-Before PID flights, create clean test conditions:
+Before PID flights, create clean test conditions.
 
+**Slider tool** (zeros feedforward at the multiplier level; sets a safe I-term baseline):
 ```
-set feedforward_roll = 0
-set feedforward_pitch = 0
-set feedforward_yaw = 0
+set_pid_sliders({ feedforward: 0, i_gain: 0.1 })
+```
+Keep I-term very low but not fully zero — enough to prevent slow attitude drift in angle mode without producing I windup during step response analysis. Fully zeroing is also valid, but 0.1 is the safer baseline.
+
+**CLI** (direct variables not covered by the slider system — run via `cli_exec` or the CLI tab):
+```
 set d_min_roll = 0
 set d_min_pitch = 0
+set d_min_advance = 0
 set pidsum_limit = 1000
 set pidsum_limit_yaw = 1000
 ```
 
-**Note**: The exact numerical conversion from Configurator slider values to CLI values is not officially documented. For consistency and reproducibility, prefer setting `i_roll`, `i_pitch`, `i_yaw` and other variables directly via CLI rather than relying on slider scaling.
-
-Also:
-- I-term gain **slider** (Betaflight Configurator UI, "I Gains" tab labeled "Drift - Wobble") → **0.1–0.2**. This controls the basic I-term multiplier affecting `i_roll`, `i_pitch`, `i_yaw`. Keep it very low but not fully zero — enough to prevent slow attitude drift in angle mode without producing I windup during step response analysis. Fully zeroing I-term gain is also valid if you're comfortable flying without it, but 0.1–0.2 is the safer default for baseline tuning.
-- **Dynamic Damping Advanced always 0**: `set d_min_advance = 0` (intentional feature but rarely beneficial; keep at 0 for baseline tuning)
+Then `cli_save` to persist all changes.
 
 ### Flight Mode and Rates
 
@@ -295,7 +300,7 @@ Establish the overall gain level *before* tuning the P:D ratio. This matters pra
 
 High-KV and powerful motors need *lower* master — faster motor response compensates for lower PID gains. Standard 5" builds may be overtuned at 1.0; heavy cinema rigs may be undertuned.
 
-From your selected starting point, increase in steps of **0.2**. Keep Dynamic Damping off and I-term at 0.1–0.2 (Configurator slider baseline values from Phase 2).
+From your selected starting point, increase in steps of **0.2**. Keep Dynamic Damping off and I-term at the Phase 2 baseline (0.1–0.2). Apply each test value with `set_pid_sliders({ master: X })` then `cli_save`.
 
 ### Evaluation Metrics
 
@@ -315,9 +320,10 @@ From your selected starting point, increase in steps of **0.2**. Keep Dynamic Da
 ### Slider Limit Workaround
 
 If master multiplier hits the **2.0 ceiling** and you want to test higher:
-1. **Double both the P&I slider and D slider**
-2. **Reset master multiplier to 1.0**
-3. Result: equivalent gains maintained, new headroom available for further tuning
+1. Read current values: `get_pid_sliders`
+2. **Double both the P&I slider and D slider**: `set_pid_sliders({ pi_gain: <current_pi*2>, d_gain: <current_d*2> })`
+3. **Reset master multiplier to 1.0**: `set_pid_sliders({ master: 1.0 })`
+4. Result: equivalent gains maintained, new headroom available for further tuning
 
 This preserves the PD ratio while allowing the master multiplier scale to extend further.
 
@@ -333,7 +339,7 @@ With master established, find the optimal P:D ratio. The P:D ratio is mathematic
 
 ### Damping Slider Sweep
 
-Sweep: `0.6 → 0.8 → 1.0 → 1.2 → 1.4 → 1.6` — one 20–30 second flight per value with controlled wobble inputs.
+Sweep: `0.6 → 0.8 → 1.0 → 1.2 → 1.4 → 1.6` — one 20–30 second flight per value with controlled wobble inputs. Apply each value with `set_pid_sliders({ d_gain: X })` then `cli_save`.
 - **Hold the stick, don't let it snap back** — clean step inputs produce clean step response traces.
 - For maximum log consistency across iterations, use an **EdgeTX/OpenTX auto-wobble script** — it automates the same roll/pitch stick oscillation pattern every flight, making PID Toolbox step response comparisons directly comparable between runs.
 - Analyze **step response** in PID Toolbox — compare against the red reference curve.
@@ -352,11 +358,11 @@ Pitch often lags roll by **~30%** due to:
 - **Frame geometry** — longer arms in pitch axis
 - **Weight distribution** — battery and camera mass creates higher rotational inertia around the pitch axis
 
-Use the **pitch damping slider** to add D to pitch independently, and the **pitch tracking slider** to increase both P and I on pitch independently.
+Use the **pitch damping slider** (`set_pid_sliders({ roll_pitch_ratio: X })`) to add D to pitch independently, and the **pitch tracking slider** (`set_pid_sliders({ pitch_pi: X })`) to increase both P and I on pitch independently.
 
 **Example scenario**: If roll responds well at damping 1.0 but pitch shows sluggish tracking:
-1. Increase **pitch tracking slider** to raise P and I on pitch (e.g., from 1.0 to 1.2)
-2. Fine-tune **pitch damping slider** if pitch-specific oscillations appear
+1. Increase **pitch tracking slider** to raise P and I on pitch (e.g., from 1.0 to 1.2): `set_pid_sliders({ pitch_pi: 1.2 })`
+2. Fine-tune **pitch damping slider** if pitch-specific oscillations appear: `set_pid_sliders({ roll_pitch_ratio: 1.1 })`
 3. If pitch nose bobble persists, also consider raising `anti_gravity_gain` (boosts I during throttle changes)
 
 **Important limitation**: Excessive pitch gains to compensate for very high rotational inertia are counterproductive. If pitch requires dramatically higher gains than roll (e.g., 50%+ higher), the issue may be mechanical (frame flex, motor position, weight distribution) rather than tunable via PIDs. Know when to stop.
@@ -365,7 +371,7 @@ Use the **pitch damping slider** to add D to pitch independently, and the **pitc
 
 ## Phase 5: I-term
 
-Wide tuning window — defaults are often fine for 5" freestyle. Sweep PI tracking slider in steps of 0.3: `0.3 → 0.6 → 0.9 → 1.2 → 1.5`
+Wide tuning window — defaults are often fine for 5" freestyle. Sweep PI tracking slider in steps of 0.3: `0.3 → 0.6 → 0.9 → 1.2 → 1.5`. Apply each value with `set_pid_sliders({ i_gain: X })` then `cli_save`.
 
 - Too low: slow drift, "floaty" feel, cornering imprecise
 - Optimal: quad feels precise and locked-in
@@ -402,7 +408,7 @@ Wide tuning window — defaults are often fine for 5" freestyle. Sweep PI tracki
 
 ### Feedforward Slider Sweep
 
-Sweep stick response (FF) slider: `0.5 → 0.75 → 1.0 → 1.25 → 1.5`
+Sweep stick response (FF) slider: `0.5 → 0.75 → 1.0 → 1.25 → 1.5`. Apply each value with `set_pid_sliders({ feedforward: X })` then `cli_save`.
 - Analyze setpoint (red) vs. gyro (black) traces in PID Toolbox.
 - Too low: gyro lags setpoint throughout the move (~16 ms gap visible)
 - Optimal: gyro tracks setpoint closely, **curves remain parallel**, motors briefly saturate then return cleanly

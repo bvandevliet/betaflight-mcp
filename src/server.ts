@@ -5,6 +5,7 @@ import { registerRealtimeTools } from './tools/realtime.js';
 import { registerCommandTools } from './tools/commands.js';
 import { registerCliTools } from './tools/cli.js';
 import { registerSystemTools } from './tools/system.js';
+import { registerSliderTools } from './tools/sliders.js';
 import { registerVariableTools } from './generated/variables.js';
 
 const server = new McpServer({
@@ -17,6 +18,7 @@ registerRealtimeTools(server);
 registerCommandTools(server);
 registerCliTools(server);
 registerSystemTools(server);
+registerSliderTools(server);
 registerVariableTools(server);
 
 const transport = new StdioServerTransport();

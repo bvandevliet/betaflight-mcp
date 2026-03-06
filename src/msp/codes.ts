@@ -67,6 +67,11 @@ export const MspCodes = {
   // ── Motor telemetry ───────────────────────────────────────────────────────
   MSP_MOTOR_TELEMETRY:        139,
 
+  // ── Simplified tuning (slider-based PID control) ──────────────────────────
+  MSP_GET_SIMPLIFIED_TUNING:      140,
+  MSP_SET_SIMPLIFIED_TUNING:      141,
+  MSP_CALCULATE_SIMPLIFIED_PID:   142,
+
   // ── Profiles ──────────────────────────────────────────────────────────────
   MSP_SELECT_SETTING:         210,  // switch active PID/rate profile (0-indexed)
   MSP_COPY_PROFILE:           183,
