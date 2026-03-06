@@ -5,7 +5,7 @@
 
 version: 2
 updates:
-  - package-ecosystem: "nuget"
+  - package-ecosystem: "npm"
     directories: # Locations of package manifests
       - "/"
       - "*/"
