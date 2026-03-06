@@ -1,0 +1,29 @@
+name: Release
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "**"
+    paths-ignore:
+      - "README.md"
+      - "docs/**"
+      - ".github/**"
+  pull_request:
+    branches:
+      - "**"
+    paths-ignore:
+      - "README.md"
+      - "docs/**"
+      - ".github/**"
+
+permissions:
+  contents: write
+  packages: read
+  actions: read
+  security-events: write
+
+jobs:
+  gitversion:
+    name: Execute GitVersion and create tag
+    uses: bvandevliet/Actions.Shared/.github/workflows/git-version.yml@master
