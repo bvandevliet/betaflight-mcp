@@ -2,6 +2,10 @@
 
 An MCP (Model Context Protocol) server that exposes Betaflight flight controller control to AI assistants such as Claude. It communicates with the FC over a serial connection using the MSP binary protocol and the Betaflight CLI text interface. Use it at your own risk — it can send any command the CLI allows, including ones that may cause crashes, flyaways, or other unsafe conditions if misused. Always review tool actions before approving them in Claude.
 
+## Compatibility
+
+- Betaflight firmware v2025.12 or later
+
 ## Features
 
 - Real-time sensor reads — attitude, IMU, GPS, RC channels, motors, battery
