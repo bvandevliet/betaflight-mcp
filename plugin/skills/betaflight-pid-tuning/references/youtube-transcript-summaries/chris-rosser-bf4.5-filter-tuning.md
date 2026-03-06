@@ -1,80 +1,492 @@
-# Betaflight 4.5 Filter Tuning Masterclass
-https://www.youtube.com/watch?v=E3s5XYk3M74
+# Betaflight 4.5 Tuning Masterclass — Filters Explained
 
-**Video purpose:** Comprehensive guide to filter tuning in Betaflight 4.5 — the foundational step before PID and rate tuning.
+## Overview
 
----
-
-## Blackbox Setup
-
-- **[00:00:58]** Logging device: set to onboard flash or SD card
-- **[00:01:21]** Minimum logging rate: 1 kHz; ideal is **1.6–2 kHz** (sufficient detail without filling storage too fast)
-- **[00:02:14]** In BF 4.5, raw gyro data is always logged regardless of debug mode
-- **[00:03:00]** Use **frequency vs. throttle view** in Blackbox Explorer (overlay → analyzer → frequency vs. throttle)
+This video introduces **filter tuning in Betaflight 4.5**, the foundation of achieving a well-tuned FPV quadcopter. It explains how to use **Blackbox logs** to identify noise sources and configure filtering systems—such as **gyro low-pass filters, RPM filters, dynamic notch filters, and D-term filters**—to reduce noise while minimizing latency. The goal is to remove motor and frame vibration without delaying useful flight signals.
 
 ---
 
-## Gyro Low Pass Filters
+# Blackbox Logging Setup
 
-- **[00:05:34]** Gyro LPF1: disabled by default — leave it off
-- **[00:05:56]** Gyro LPF2: primarily an **anti-aliasing filter**; default 500 Hz is too low — raise to **1 kHz** via the gyro filter multiplier slider
-- **[00:07:00]** If gyro rate equals PID loop rate (e.g. 8K/8K), LPF2 can be safely disabled
+## [00:00:51] Why Blackbox Logs Matter
 
----
+* Blackbox logging helps analyze **gyro noise and vibrations** for accurate filter tuning.
+* Not required for all tuning steps but **highly recommended for advanced tuning**.
 
-## RPM Filters
+## [00:01:09] Recommended Logging Settings
 
-- **[00:07:28]** Motor noise is the primary noise source; typically starts ~100 Hz and rises with throttle
-- **[00:08:08]** Harmonics visible at 2×, 3× fundamental RPM
-- **[00:08:56]** **RPM filter crossfading** (since BF 4.3): fade filters in between min Hz and min + fade range — tune based on where motor noise becomes apparent in the log
-- **[00:10:25]** **Q value**: higher = tighter notch, less delay. Default is 500; push towards ~1000 while checking filtered gyro for motor noise bleed-through
+* Logging device:
 
-### RPM Filter Dimming (new in BF 4.5)
+  * **Onboard flash** or **SD card**
+* Minimum logging rate: **1 kHz**
 
-- **[00:12:30]** Adjust per-harmonic filter strength via `set rpm_filter_weights` in CLI
-- **[00:12:56]** Tri-blade props: suggested `100, 0, 80` (no noise at 2× harmonic)
-- **[00:13:31]** Bi-blade props: start with `100, 80, 0` or `100, 50, 0` depending on harmonic energy
-- *Goal: reduce filter weights as much as possible without motor noise appearing in filtered gyro*
+  * Shows frequencies up to **500 Hz**
+* Ideal logging rate:
 
----
+  * **1.6 kHz or 2 kHz**
+  * Captures signals up to **800–1000 Hz**
+  * Avoid **4 kHz or 8 kHz** since logs fill too quickly.
 
-## Dynamic Notch Filters
+## [00:02:30] Opening Logs
 
-- **[00:14:19]** Targets **frame resonances** — visible as vertical stripes in blackbox logs
-- **[00:15:30]** Number of dynamic notches needed = number of visible vertical stripes (usually 1)
-- **[00:15:48]** **If your frame is quiet with no vertical stripes — disable the dynamic notch entirely** to eliminate unnecessary delay
-- **[00:16:32]** Min frequency: set ~25 Hz below the resonance, but **never below 150 Hz** (ideally ≥200 Hz)
-- **[00:17:06]** Max frequency: less critical; default ~600 Hz is fine; can be narrowed for better resolution
-- **[00:17:42]** Q factor: increase until frame noise starts escaping the notch, then back off — **don't exceed ~1000**
+Steps:
 
----
+1. Open **Blackbox tab** in Betaflight Configurator.
+2. Click **Activate Mass Storage Mode**.
+3. Open logs using **Blackbox Explorer**.
 
-## D-Term Low Pass Filters
+## [00:03:00] Key Visualization for Filter Tuning
 
-Two approaches:
+Use:
 
-| | **Karate tune (default)** | **AOS tune** |
-|---|---|---|
-| Filters | Two PT1 filters | Single dynamic biquad |
-| Delay | Slightly more | Slightly less |
-| Motor noise rejection | Good | Better, especially at high throttle |
-| Ease of tuning | Easier (slider-based) | More complex (manual CLI) |
-| Best for | Noisier/less optimised builds | Cleaner builds, better prop wash handling |
+* **Frequency vs Throttle analyzer**
+* Overlay **raw gyro data**
 
-- **[00:22:58]** Karate tuning: nudge `dterm_lpf_multiplier` up in 0.05–0.1 steps until motors sound rough, then back off
-- **[00:23:22]** AOS tuning: disable profile-dependent filter settings; set `dterm_lpf1` to `80, 110, BIQUAD`; tune min cutoff (zero throttle) then max cutoff (full throttle) separately
-- **[00:24:15]** **Dynamic curve expo**: controls how cutoff frequency scales with throttle. Values >5 are more aggressive at low throttle — push as high as possible without mid-throttle oscillations
+This graph reveals:
+
+* Motor noise patterns
+* Frame resonances
+* Noise behavior across throttle levels.
 
 ---
 
-## Yaw Low Pass Filter
+# Filter Configuration Overview
 
-- **[00:25:27]** Yaw responds slower than pitch/roll (torque-based, not thrust-based) — filter delay is less critical on this axis
-- **[00:26:02]** Reducing yaw noise provides headroom for tighter pitch/roll tuning (motor thermals)
-- **[00:26:22]** For maximum yaw responsiveness: try disabling it and verify no issues in logs
+## [00:04:09] Filters Covered
+
+The tutorial focuses on modern filters used in Betaflight:
+
+1. **Gyro Low Pass Filters**
+2. **RPM Filters**
+3. **Dynamic Notch Filters**
+4. **D-Term Low Pass Filters**
+5. **Yaw Low Pass Filter**
+
+Excluded:
+
+* Static **gyro notch filters**
+* Static **D-term notch filters** (mostly obsolete).
 
 ---
 
-## Conclusion
+# Gyro Low Pass Filters
 
-Filter tuning in BF 4.5 follows a clear hierarchy: raise gyro LPF2 → configure RPM filters with appropriate Q and weights → set dynamic notch only if frame resonance exists → tune D-term LPF using either the Karate or AOS approach. The overarching principle throughout is **minimise delay while ensuring noise doesn't reach the filtered gyro signal** — verified via blackbox logs at each step. PID and rate tuning videos follow as subsequent parts of the series.
+## [00:05:33] Gyro Low Pass 1
+
+* **Disabled by default**
+* Not needed on most modern builds.
+* Recommended: **leave disabled**
+
+## [00:05:56] Gyro Low Pass 2 (Anti-Aliasing Filter)
+
+Purpose:
+
+* Prevent **aliasing** when **gyro rate > PID loop rate**
+
+Example:
+
+* 8k gyro / 4k PID loop.
+
+Default cutoff:
+
+* **500 Hz (too low)**
+
+Recommended change:
+
+* Increase to **1000 Hz**
+
+Steps:
+
+* Move **gyro filter multiplier slider fully right**
+
+### [00:06:57] When to Disable
+
+If:
+
+* **Gyro rate = PID loop rate**
+
+Examples:
+
+* 8k / 8k
+* 3.6k / 3.6k
+
+Then:
+
+* **Gyro LPF2 can be disabled**
+
+---
+
+# RPM Filtering (Motor Noise)
+
+## [00:07:28] Main Noise Source
+
+Most quad noise comes from **motor vibrations**.
+
+Characteristics:
+
+* Starts around **100 Hz**
+* Increases with throttle.
+
+Motor noise includes:
+
+* **Fundamental frequency**
+* **Harmonics** (multiples of RPM).
+
+Example (tri-blade props):
+
+* Strong fundamental
+* Weak second harmonic
+* Visible third harmonic.
+
+---
+
+## [00:08:56] RPM Filter Crossfading
+
+RPM filters gradually activate over a frequency range.
+
+Default:
+
+* Minimum: **100 Hz**
+* Fade range: **50 Hz**
+
+Meaning:
+
+* Filters ramp from **100 → 150 Hz**
+
+Optimization approach:
+
+* Adjust fade range based on where noise appears in logs.
+
+Example:
+
+* Fade **100 → 200 Hz** if noise grows later.
+
+Guidelines:
+
+* **Large quads:** start filtering earlier.
+* **Small quads:** start filtering later.
+
+---
+
+## [00:10:25] RPM Filter Q Value
+
+Defines **notch sharpness**.
+
+* Higher Q = tighter filter
+* Tighter filter = **less delay**
+
+Default:
+
+* **Q = 500**
+
+Suggested tuning:
+
+* Increase gradually up to **~1000**
+* Stop when motor noise begins leaking through.
+
+Method:
+
+* Compare **raw vs filtered gyro signals**.
+
+---
+
+## [00:11:40] Propeller Influence on Harmonics
+
+### Bi-blade props
+
+Noise often appears at:
+
+* 1× fundamental
+* **2× harmonic**
+* 3× or 4× possible.
+
+### Tri-blade props
+
+Typical pattern:
+
+* Strong **1× harmonic**
+* Minimal **2×**
+* Some **3× harmonic**
+
+---
+
+## [00:12:30] RPM Filter Dimming (New in 4.5)
+
+Allows adjusting **strength of each harmonic filter**.
+
+Example (tri-blade props):
+
+```
+set rpm_filter_weights = 100,0,80
+```
+
+Meaning:
+
+* Full strength on first harmonic
+* Disable second harmonic
+* Reduce third harmonic
+
+Example (bi-blade start point):
+
+```
+100,100,80
+```
+
+Goal:
+
+* Reduce filtering where unnecessary to **minimize delay**.
+
+---
+
+# Dynamic Notch Filter (Frame Resonance)
+
+## [00:14:13] Identifying Frame Resonance
+
+In logs:
+
+* Appears as **vertical stripes**
+* Same frequency across throttle levels.
+
+Typical frequencies:
+
+* **>100 Hz**
+
+Possible causes below 100 Hz:
+
+* Loose antenna
+* GoPro mount
+* Flexible components.
+
+---
+
+## [00:15:05] Number of Dynamic Notches
+
+Equal to the number of visible resonance stripes.
+
+Typical:
+
+* **1 notch**
+
+Large frames may need:
+
+* **2–3**
+
+---
+
+## [00:15:30] When to Disable
+
+If logs show **no vertical resonance stripes**, the filter does nothing and only adds delay.
+
+Example:
+
+* Very rigid frames (e.g., AOS builds).
+
+Recommendation:
+
+* **Disable dynamic notch** if not needed.
+
+---
+
+## [00:16:19] Dynamic Notch Frequency Range
+
+Set:
+
+Minimum:
+
+* Slightly **below resonance**
+* Preferably **>150 Hz**
+
+Example:
+
+* Resonance at **225 Hz**
+* Set minimum ≈ **200 Hz**
+
+Maximum:
+
+* Less critical
+* Default ≈ **600 Hz**
+
+Can reduce if resonance range is narrow.
+
+---
+
+## [00:17:42] Dynamic Notch Q Factor
+
+Higher Q:
+
+* Narrower notch
+* Less delay
+
+Recommended:
+
+* Increase until noise escapes
+* Usually **≤1000**
+
+---
+
+# D-Term Low Pass Filters
+
+## [00:18:49] Why D-Term Needs Strong Filtering
+
+D-term amplifies noise:
+
+* Noise gain increases **with frequency**
+* High-frequency noise can cause **motor overheating or oscillations**
+
+D-term filters remove remaining noise after RPM/dynamic notch filtering.
+
+---
+
+# Two D-Term Filtering Approaches
+
+## [00:19:20] 1. Default “Karate” Tune
+
+Uses:
+
+* **Two PT1 filters**
+
+Advantages:
+
+* Balanced
+* More forgiving
+* Easier to tune.
+
+Tuning method:
+
+* Increase **D-term filter multiplier** slowly
+* Stop when:
+
+  * Motors become hot
+  * Oscillations appear.
+
+---
+
+## [00:19:31] 2. AOS Tune
+
+Uses:
+
+* **Single dynamic biquad filter**
+
+Advantages:
+
+* Less delay
+* Better motor noise rejection
+* Better prop-wash handling.
+
+Disadvantages:
+
+* Harder to tune.
+
+---
+
+## [00:23:20] How to Enable AOS Tune
+
+Steps:
+
+1. Disable **profile dependent filter settings**
+2. Set:
+
+```
+dterm lowpass = biquad
+```
+
+3. Configure:
+
+* Minimum cutoff (zero throttle)
+* Maximum cutoff (full throttle)
+
+---
+
+## [00:23:42] Tuning AOS Filters
+
+Procedure:
+
+1. Increase **minimum cutoff**
+2. Stop when oscillations appear at **zero throttle**
+3. Reduce slightly.
+
+Then:
+
+4. Increase **maximum cutoff**
+5. Stop when oscillations appear at **full throttle**
+6. Reduce slightly.
+
+Goal:
+
+* Minimum delay across throttle range.
+
+---
+
+## [00:24:11] Dynamic Curve Expo
+
+Controls how filter frequency changes with throttle.
+
+Default:
+
+* **5 (linear)**
+
+Higher values:
+
+* Increase cutoff earlier at low throttle
+* Reduce delay in common flight ranges.
+
+Tuning approach:
+
+* Increase until **mid-throttle oscillations** appear
+* Then reduce slightly.
+
+---
+
+# Yaw Low Pass Filter
+
+## [00:25:27] Why Yaw Has a Separate Filter
+
+Yaw response is slower because:
+
+* Controlled by **motor torque**
+* Not by thrust direction changes.
+
+Therefore:
+
+* **Filter delay matters less**
+
+Benefits:
+
+* Reduces yaw noise
+* Gives more motor headroom for pitch/roll tuning.
+
+Optional:
+
+* Can disable for **maximum yaw responsiveness**.
+
+---
+
+# Key Tuning Strategy
+
+## [00:26:34] Step-by-Step Filter Workflow
+
+1. Configure **gyro filters**
+2. Tune **RPM filters**
+3. Address **frame resonance (dynamic notch)**
+4. Tune **D-term filtering**
+5. Optionally adjust **yaw filter**
+
+Primary goals:
+
+* Remove motor noise
+* Remove frame resonance
+* **Minimize filter delay**
+* Preserve signals under **~90 Hz** (actual flight movements).
+
+---
+
+# Conclusion
+
+Effective Betaflight filtering requires balancing **noise removal and latency**. The recommended workflow:
+
+* Use **Blackbox logs** to identify noise sources.
+* Let **RPM filters remove motor noise**.
+* Use **dynamic notch filters for frame resonance** only when needed.
+* Optimize **D-term filtering** to control remaining noise while preserving flight responsiveness.
+
+When properly tuned, filters enable **clean gyro data**, allowing higher PID gains and delivering a **stable, responsive quadcopter flight experience**.

@@ -4,6 +4,8 @@ description: >
   Expert Betaflight FPV quad tuning assistant. Combines the PIDtoolbox "basement tuning" methodology with Chris Rosser's scientifically grounded filter and PID theory, backed by a full set of official Betaflight documentation. Has direct access to the Betaflight MCP server for real-time sensor reads, CLI command execution, and live FC configuration.
 
   Use this skill proactively whenever the user mentions: Betaflight, FPV drone, FPV quad, PID tuning, filter tuning, blackbox analysis, propwash, oscillations, motor heat, motor noise, gyro noise, RPM filtering, feed forward, dynamic damping, D-term, I-term windup, anti-gravity, TPA, dynamic idle, Betaflight CLI variables, ESC configuration, rates tuning, freestyle tuning, or any request to connect to, read from, or configure a flight controller. Also trigger for questions about Betaflight CLI commands or variables even if no tuning is involved.
+  
+  Expert workflow: Phase 0 (hardware verification via hover log) → Phase 1 (filters) → Phase 2 (PID baseline) → Phase 3 (master gain) → Phase 4 (PD balance) → Phase 5 (I-term) → Phase 6 (feedforward) → Phase 7 (dynamic damping). Emphasizes hover-first diagnostics, parallel filter/PID iteration, and data-driven decisions over guesswork.
 ---
 
 # Betaflight Tuning Expert
@@ -83,6 +85,10 @@ The MCP server runs alongside this session and exposes these tools:
 - `get_mixer`, `get_serial_config`, `get_aux_config`, `get_channel_map`
 - `motor_get` / `motor_set` — read/drive motors (armed state)
 
+### Simplified Tuning Sliders
+- `get_pid_sliders` — read current slider values as floats (1.0 = default/100%). Returns `master`, `roll_pitch_ratio`, `i_gain`, `d_gain`, `pi_gain`, `dmax_gain`, `feedforward`, `pitch_pi`, and `pids_mode`.
+- `set_pid_sliders` — set one or more sliders by float value; the FC immediately recalculates actual P/I/D gains (equivalent to moving a slider in Configurator). Provide only the fields to change; all others keep current values. Automatically enables simplified tuning if disabled. Call `cli_save` to persist. Example: `set_pid_sliders({ master: 1.2, i_gain: 0.1, feedforward: 0 })`
+
 ### Variable Tools (760+ available)
 Each CLI variable has dedicated `get_<varname>` and `set_<varname>` tools, e.g.:
 - `get_master_multiplier` / `set_master_multiplier`
@@ -132,21 +138,67 @@ Before tuning, verify:
 
 ---
 
+## PID Controller Fundamentals
+
+Before diving into tuning, understand the control structure:
+
+**PID Error** = Setpoint (stick position) − Gyromeasured (actual rotation rate)
+
+The PID controller transforms this error into motor commands:
+
+| Component | Analogy | Function | Effect if too low | Effect if too high |
+|-----------|---------|----------|-------------------|--------------------|
+| **P term** | Spring | Pushes back against error proportionally — larger error = stronger correction | Sluggish response, slow return to setpoint | Oscillations, ringing |
+| **D term** | Shock absorber | Reacts to rate of change of gyro (rotational acceleration) — resists overshoot | Overshoot past setpoint, oscillations | Over-damped, slow, sluggish response |
+| **I term** | Integrator | Accumulates small persistent errors over time — corrects systematic offsets and drift | Slow drift, "floaty" feel, imprecise cornering | Slow wobbles after fast moves (I summing with P) |
+| **Feed Forward** | Predictor | Based on stick movement speed — predicts required response before the quad reacts | Gyro lags setpoint throughout moves (~16 ms) | Gyro overshoots at move end, bounce-back |
+
+**Key insight**: **P:D ratio** matters more than absolute values. Proper PD balance produces a smooth, damped response to stick inputs — the trace rises to the setpoint (1.0) with minimal overshoot and no oscillation. The **master multiplier** then scales this balanced response up or down for overall responsiveness.
+
+**Tuning order rationale**: D → P → I → FF. Each step stabilizes the next. Master multiplier establishes gain level first, PD balance finds optimal ratio, I-term adds long-term accuracy, and feedforward reduces tracking lag.
+
+---
+
 ## Tuning Order
 
-**Hardware check → Filters → PID Baseline → Master Gain → PD Balance → I-term → Feed Forward → Dynamic Damping**
+**Phase 0: Hardware Verification → Phase 1: Filters → Phase 2: PID Baseline → Phase 3: Master Gain → Phase 4: PD Balance → Phase 5: I-term → Phase 6: Feed Forward → Phase 7: Dynamic Damping**
 
-Never skip filter tuning first — filter-induced phase delay directly limits achievable PID gains. More filtering = lower max safe gains.
+**Core principle**: Filter and PID tuning run **in parallel**, not sequentially — each PID test yields new noise profile data worth assessing. Never skip filter tuning first — filter-induced phase delay directly limits achievable PID gains. More filtering = lower max safe gains.
 
-### Hardware First
+---
 
-A hover log reveals hardware issues before wasting time on software. Broadband noise = electrical/mechanical problem. Narrow peaks = motor noise (normal, handled by RPM filters). Discrete frame resonance peaks = structural issue. If you see elevated broadband noise across all frequencies, advise the user to check motor screws, prop balance, ESC capacitors, and soft-mounting.
+## Phase 0: Hardware Verification
+
+**Start with a 30-40 second steady hover log** before any tuning. This diagnostic-first approach reveals 99% of major issues without risky aggressive flight.
+
+### Why Hover First
+
+1. **Replicability** — at constant RPM, changes in the power spectrum are attributable to tuning changes, not flight style variations
+2. **Motor noise clarity** — constant RPM produces motor noise as **discrete frequency peaks** (easy to isolate from other issues)
+3. **Electrical noise detection** — **broadband noise across all frequencies** indicates electrical/gyro hardware problems, not tuning issues
+4. **Safety** — avoids requesting dangerous maneuvers (e.g., full throttle ramps on heavy cinema lifters) before understanding baseline health
+
+### Noise Source Identification
+
+In the spectral analyzer:
+
+| Signature | Cause | Solution |
+|-----------|-------|----------|
+| **Discrete frequency peaks** (narrow bands) | Motor vibration (normal) | RPM filters handle this |
+| **Vertical stripes** (fixed frequency) | Frame resonances | Dynamic notch filters |
+| **Elevated broadband noise** (all frequencies) | Electrical interference, gyro defects, mechanical issues | **Hardware problem** — check motor screws, prop balance, ESC capacitors, soft-mounting, or replace FC |
+
+**Critical insight**: Many all-in-one FC boards (especially cinewhoops) ship with inherent gyro or electrical defects. Shops know but continue selling; clients frequently receive 2-3 replacement boards. Beginners misattribute hardware noise to PID settings and seek filter/tuning solutions instead. **No amount of tuning can fix a defective flight controller**.
+
+If broadband noise is present, advise hardware inspection before proceeding with tuning.
 
 ---
 
 ## Phase 1: Filter Tuning
 
-**Setup**: fly a 30–40 second steady hover. Analyze the log in PID Toolbox (spectral analyzer, frequency vs. throttle view) or Blackbox Explorer (analyzer tab).
+**Setup**: fly a 30–40 second steady hover (Phase 0 diagnostic log can be reused). Analyze the log in PID Toolbox (spectral analyzer, frequency vs. throttle view) or Blackbox Explorer (analyzer tab).
+
+**Philosophy**: Filter tuning is iterative and runs **in parallel with PID tuning** — each subsequent wobble test provides new noise data as PIDs change. Aim for tentative filter optimization here, then reassess after each PID adjustment phase.
 
 ### Gyro LPF
 - **LPF1**: disable it — `set gyro_lpf1_static_hz = 0` (or slider fully left)
@@ -164,13 +216,13 @@ Motor noise starts around 100 Hz and rises with throttle. Harmonics at 2× and 3
   - Goal: reduce each harmonic weight as far as possible without motor noise appearing in the filtered gyro
 
 ### Dynamic Notch Filter
-Targets frame resonances — visible as **vertical stripes** (fixed-frequency peaks) in the blackbox spectrum.
+Targets frame resonances — visible as **vertical stripes** (fixed-frequency peaks) in the blackbox spectrum. These are fixed-frequency resonances that appear as the same frequency across all throttle levels, distinguishing them from motor noise which sweeps diagonally.
 
-- If **no vertical stripes visible → disable it entirely**: `set dyn_notch_count = 0`. Eliminates unnecessary delay.
+- If **no vertical stripes visible → disable it entirely**: `set dyn_notch_count = 0`. Eliminates unnecessary delay. Rigid frames (e.g., well-designed AOS builds) often need no dynamic notch.
 - If resonances exist: set `dyn_notch_count` to match the number of visible peaks. With RPM filtering active, 1–2 notches are sufficient; without RPM filtering, use 4–5.
-- `dyn_notch_min_hz`: ~25 Hz below the resonance, **never below 150 Hz** (ideally ≥200 Hz)
-- `dyn_notch_max_hz`: default ~600 Hz is fine; can be narrowed for better resolution
-- `dyn_notch_q`: increase until resonance just escapes the notch, then back off — don't exceed ~1000
+- `dyn_notch_min_hz`: ~25 Hz below the resonance, **never below 150 Hz** (ideally ≥200 Hz). For best results, set the minimum frequency to constrain where notches can track.
+- `dyn_notch_max_hz`: default ~600 Hz is fine; can be narrowed for better resolution if resonance range is known to be narrow
+- `dyn_notch_q`: increase until resonance just escapes the notch, then back off — don't exceed ~1000. Higher Q = narrower notch = less delay.
 
 ### D-term LPF — Two Approaches
 
@@ -187,25 +239,48 @@ Yaw is torque-based (inherently slower), so filter delay is less critical here. 
 
 ## Phase 2: PID Baseline
 
-Before PID flights, create clean test conditions:
+Before PID flights, create clean test conditions.
 
+**Slider tool** (zeros feedforward at the multiplier level; sets a safe I-term baseline):
 ```
-set feedforward_roll = 0
-set feedforward_pitch = 0
-set feedforward_yaw = 0
+set_pid_sliders({ feedforward: 0, i_gain: 0.1 })
+```
+Keep I-term very low but not fully zero — enough to prevent slow attitude drift in angle mode without producing I windup during step response analysis. Fully zeroing is also valid, but 0.1 is the safer baseline.
+
+**CLI** (direct variables not covered by the slider system — run via `cli_exec` or the CLI tab):
+```
 set d_min_roll = 0
 set d_min_pitch = 0
+set d_min_advance = 0
 set pidsum_limit = 1000
 set pidsum_limit_yaw = 1000
 ```
 
-Also:
-- I-term drift/wobble slider → 0.1–0.2. Keep it very low but not fully zero — enough to prevent slow attitude drift in angle mode without producing I windup that confuses step response analysis. Fully zeroing I-term is also valid if you're comfortable flying without it, but 0.1–0.2 is the safer default for angle-mode basement tuning.
-- **Dynamic Damping Advanced always 0**: `set d_min_advance = 0` (intentional feature but rarely beneficial; keep at 0 for baseline tuning)
-- Fly in **angle mode** — safe in confined spaces, same step response traces as acro (confirmed)
+Then `cli_save` to persist all changes.
+
+### Flight Mode and Rates
+
+- Fly in **angle mode** — safe in confined spaces, **produces identical step response traces to acro mode** (confirmed by direct testing). The only exception is feedforward (Phase 6), which requires acro/rate mode in BF 4.5+.
 - Set angle limit to 30° for manageable inputs: `set small_angle = 30`
-- Enable and calibrate accelerometer first
-- Use a linear rate curve: e.g. 150° center sensitivity / 150° max rate
+- Enable and calibrate accelerometer first (required for angle mode)
+- **Use a linear rate curve** for predictable, consistent inputs: **150° center sensitivity / 150° max rate**. This makes step response analysis clearer and removes rate curve nonlinearity as a variable.
+
+### Test Input Method
+
+Perform sharp roll and pitch stick movements:
+- **Hold the stick during movements** — never let it snap back freely (stick bounce creates misleading oscillations)
+- For maximum consistency, use an **EdgeTX/OpenTX auto-wobble script** — automates identical roll/pitch stick oscillation patterns every flight, making PID Toolbox step response traces directly comparable between test runs. This eliminates pilot input variability.
+
+### Field Adjustment Workflow (Optional)
+
+Instead of reconnecting to a computer between each test flight:
+1. Disarm the quad
+2. Open the **Betaflight OSD menu** (via stick commands)
+3. Navigate to **Simplified Tuning**
+4. Adjust sliders directly in the field
+5. Arm and test immediately
+
+This dramatically speeds up the tuning iteration cycle.
 
 ---
 
@@ -213,18 +288,48 @@ Also:
 
 Establish the overall gain level *before* tuning the P:D ratio. This matters practically: at very low master the controller has too little authority for the step response to clearly express ratio effects. Starting here also surfaces gain-headroom problems early — if master won't climb past 0.8 before oscillating, that's a filter or hardware problem to solve before investing time in ratio sweeps.
 
-Start at **0.5** and increase in steps of **0.2**. Keep Dynamic Damping off and I-term at 0.1–0.2 (baseline values from Phase 2).
+### Starting Point Selection
 
-**Primary metric: latency** (use cross-correlation lag in PID Toolbox). Stop when:
-- Latency plateaus (diminishing returns)
-- Spectral peaks emerge between **40–70 Hz** (sign of PID oscillation building)
+**The default master multiplier of 1.0 is not universal** — it depends on power-to-weight ratio and rotational inertia:
+
+| Build characteristics | Starting master multiplier |
+|----------------------|---------------------------|
+| High-KV / powerful motors (fast motor response) | **0.6–0.8** |
+| Typical 3-5" freestyle | **0.8–1.0** |
+| Heavy lifters / low power-to-weight | **1.0–1.2** |
+
+High-KV and powerful motors need *lower* master — faster motor response compensates for lower PID gains. Standard 5" builds may be overtuned at 1.0; heavy cinema rigs may be undertuned.
+
+From your selected starting point, increase in steps of **0.2**. Keep Dynamic Damping off and I-term at the Phase 2 baseline (0.1–0.2). Apply each test value with `set_pid_sliders({ master: X })` then `cli_save`.
+
+### Evaluation Metrics
+
+**Primary metric: latency** — use **cross-correlation lag** in PID Toolbox for accurate measurement (more reliable than visual step response timing inspection). Stop when:
+- Latency improvement **plateaus** (diminishing returns, typically around step 4-5)
+- Spectral peaks emerge in the mid-frequency range (typically **30–100 Hz** for acro quads; depends on loop rate and filter cutoffs) in the spectral analyzer (early warning sign of PID oscillation building)
 - Audible trilling or oscillations during flight
+- Motors become noticeably hot
 
-High-KV / powerful motors need *lower* master (faster motor response compensates). If master hits 2.0 ceiling: double both P&I and D sliders → reset master to 1.0 (equivalent gains, new headroom).
+**Spectral analyzer diagnostics** — check these alongside step response:
+- Watch for emerging peaks in the control loop frequency range as gains rise — this is PID feedback oscillation beginning to manifest. The specific frequency depends on your PID loop rate, filter topology, and gyro dynamics.
+- **Noise floor heuristics**:
+  - Gyro: typically **below −30 dB** (varies by gyro chip and sensor design; baseline is for ICM-based sensors)
+  - D-term: typically **below −10 dB** (**above 0 dB risks motor damage or flyaway** — this indicates unfiltered oscillation reaching motor commands)
+- **Filter delay relationship**: more filtering = lower max achievable gain (filter-induced phase delay limits control authority)
 
-**Noise floor targets** in spectral analyzer:
-- Gyro: below **−30 dB**
-- D-term: below **−10 dB** (above 0 dB risks motor damage or flyaway)
+### Slider Limit Workaround
+
+If master multiplier hits the **2.0 ceiling** and you want to test higher:
+1. Read current values: `get_pid_sliders`
+2. **Double both the P&I slider and D slider**: `set_pid_sliders({ pi_gain: <current_pi*2>, d_gain: <current_d*2> })`
+3. **Reset master multiplier to 1.0**: `set_pid_sliders({ master: 1.0 })`
+4. Result: equivalent gains maintained, new headroom available for further tuning
+
+This preserves the PD ratio while allowing the master multiplier scale to extend further.
+
+### Why Master Before PD Balance and I-Term
+
+**Tuning master multiplier before PD ratio and I-term is not arbitrary** — higher master multiplier **collapses the P error** between setpoint and gyro, reducing the error signal that I-term would otherwise integrate. This makes subsequent I-term testing cleaner and more accurate by minimizing I-term windup opportunity. Similarly, evaluating PD balance at the actual operating gain level (rather than at an arbitrary low gain) ensures the ratio is optimized for real flight conditions.
 
 ---
 
@@ -232,29 +337,48 @@ High-KV / powerful motors need *lower* master (faster motor response compensates
 
 With master established, find the optimal P:D ratio. The P:D ratio is mathematically invariant to master scaling — the ratio sweep can be done at any gain level — but doing it after Phase 3 means you're evaluating it at the actual operating point the quad will fly. Keep all other sliders constant, vary **only the damping slider**.
 
-Sweep: `0.6 → 0.8 → 1.0 → 1.2 → 1.4 → 1.6` — one 20–30 second flight per value with controlled wobble inputs.
+### Damping Slider Sweep
+
+Sweep: `0.6 → 0.8 → 1.0 → 1.2 → 1.4 → 1.6` — one 20–30 second flight per value with controlled wobble inputs. Apply each value with `set_pid_sliders({ d_gain: X })` then `cli_save`.
 - **Hold the stick, don't let it snap back** — clean step inputs produce clean step response traces.
 - For maximum log consistency across iterations, use an **EdgeTX/OpenTX auto-wobble script** — it automates the same roll/pitch stick oscillation pattern every flight, making PID Toolbox step response comparisons directly comparable between runs.
 - Analyze **step response** in PID Toolbox — compare against the red reference curve.
 
 | Trace shape | Meaning | Action |
 |-------------|---------|--------|
-| Clear overshoot past 1.0, oscillations | D too low | Increase damping slider |
+| Clear overshoot past 1.0, oscillations | D too low (under-damped) | Increase damping slider |
 | Rises to 1.0, minimal overshoot, flat | Optimal | Use this value |
 | Slow rise, over-damped | D too high | Decrease damping slider |
 
-Pick the value where overshoot just disappears. Erring slightly toward more D improves propwash resistance. Pitch often needs independent compensation via the pitch damping slider (pitch inertia is higher due to frame geometry). If pitch nose bobble persists after damping adjustments, use the **pitch tracking slider** to increase P and I on pitch independently — also consider raising `anti_gravity_gain` alongside it.
+**Selection rule**: Pick the value where overshoot just disappears but responsiveness remains high. Erring slightly toward more D (e.g., choosing 1.0 over 0.8 when both look acceptable) improves propwash resistance.
+
+### Roll vs Pitch Axis Compensation
+
+Pitch often lags roll by **~30%** due to:
+- **Frame geometry** — longer arms in pitch axis
+- **Weight distribution** — battery and camera mass creates higher rotational inertia around the pitch axis
+
+Use the **pitch damping slider** (`set_pid_sliders({ roll_pitch_ratio: X })`) to add D to pitch independently, and the **pitch tracking slider** (`set_pid_sliders({ pitch_pi: X })`) to increase both P and I on pitch independently.
+
+**Example scenario**: If roll responds well at damping 1.0 but pitch shows sluggish tracking:
+1. Increase **pitch tracking slider** to raise P and I on pitch (e.g., from 1.0 to 1.2): `set_pid_sliders({ pitch_pi: 1.2 })`
+2. Fine-tune **pitch damping slider** if pitch-specific oscillations appear: `set_pid_sliders({ roll_pitch_ratio: 1.1 })`
+3. If pitch nose bobble persists, also consider raising `anti_gravity_gain` (boosts I during throttle changes)
+
+**Important limitation**: Excessive pitch gains to compensate for very high rotational inertia are counterproductive. If pitch requires dramatically higher gains than roll (e.g., 50%+ higher), the issue may be mechanical (frame flex, motor position, weight distribution) rather than tunable via PIDs. Know when to stop.
 
 ---
 
 ## Phase 5: I-term
 
-Wide tuning window — defaults are often fine for 5" freestyle. Sweep PI tracking slider in steps of 0.3: `0.3 → 0.6 → 0.9 → 1.2 → 1.5`
+Wide tuning window — defaults are often fine for 5" freestyle. Sweep PI tracking slider in steps of 0.3: `0.3 → 0.6 → 0.9 → 1.2 → 1.5`. Apply each value with `set_pid_sliders({ i_gain: X })` then `cli_save`.
 
 - Too low: slow drift, "floaty" feel, cornering imprecise
 - Optimal: quad feels precise and locked-in
 - Too high: slow wobbles after fast moves (I summing with P re-introduces overshoot)
-- On very light builds, I-term sometimes makes no measurable difference
+- On very light builds, I-term sometimes makes no measurable difference due to minimal accumulated P error
+
+**Why I-term is tuned before feedforward**: Once feedforward (Phase 6) minimizes setpoint-gyro tracking lag, I-term can often be increased significantly beyond what would be stable without feedforward. Lower lag prevents I-term windup that would occur with higher tracking error. Therefore, I-term in this phase establishes a conservative baseline; you may revisit and raise it after feedforward is optimized. The interdependence means experienced tuners sometimes evaluate them together.
 
 **Related settings:**
 
@@ -280,21 +404,47 @@ Wide tuning window — defaults are often fine for 5" freestyle. Sweep PI tracki
 
 **Apply radio link preset first** (Configurator Presets tab → search your RC link name). This configures RC smoothing and FF filtering for your specific link.
 
-**Feed forward requires acro/rate mode** — angle mode bypasses it in BF 4.5+.
+**Feed forward requires acro/rate mode** — angle mode bypasses it in BF 4.5+ (angle mode has its own internal feedforward system for auto-level behavior).
 
-Sweep stick response (FF) slider: `0.5 → 0.75 → 1.0 → 1.25 → 1.5`
+### Feedforward Slider Sweep
+
+Sweep stick response (FF) slider: `0.5 → 0.75 → 1.0 → 1.25 → 1.5`. Apply each value with `set_pid_sliders({ feedforward: X })` then `cli_save`.
 - Analyze setpoint (red) vs. gyro (black) traces in PID Toolbox.
 - Too low: gyro lags setpoint throughout the move (~16 ms gap visible)
-- Optimal: gyro tracks setpoint closely, motors briefly saturate then return cleanly
-- Too high: gyro overshoots and bounces back at move end
+- Optimal: gyro tracks setpoint closely, **curves remain parallel**, motors briefly saturate then return cleanly
+- Too high: gyro overshoots and bounces back at move end, or gyro accelerates faster than setpoint (curves no longer parallel)
 
-Sub-settings:
+**Law of diminishing returns**: latency reduction plateaus as FF increases. When motors saturate at 100% on sharp moves, further FF gain is pointless.
+
+### Feedforward and RC Smoothing Interaction
+
+RC smoothing adds control delay (e.g., ~12-15 ms for 15 Hz cutoff, common for cinematic footage). **Feedforward compensates** by predicting movement and recovering that latency:
+- Heavy RC smoothing (15 Hz): adds ~15 ms delay
+- Feedforward (1.0): recovers ~15 ms responsiveness
+- **Net result**: smooth cinematic stick inputs **without sacrificing responsiveness**
+
+This is why properly tuned feedforward is critical for HD/cinematic setups — it maintains locked-in feel despite aggressive input filtering.
+
+### Crossfire 50 Hz Artifact (Important)
+
+When using **Crossfire 50 Hz**, expect a **~50 Hz signal** visible in gyro traces during blackbox analysis.
+
+**This is NOT a PID oscillation** — it's an **RC link artifact** from the square-wave nature of 50 Hz packet updates. Imperfect RC smoothing leaves remnants visible in logs, appearing as a low-frequency ripple.
+
+**Practical impact**: Feedforward above 1.0 with Crossfire 50 Hz **may disrupt** the optimal P:D ratio you established in Phase 4. The 50 Hz artifact can interact with high feedforward gains and create additional control dynamics not present during PD balance testing.
+
+**Recommendation**: Consider keeping FF ≤1.0 when using Crossfire 50 Hz as a precaution; if you exceed 1.0, verify P:D balance behavior in blackbox logs.
+
+### Sub-settings
+
 - `feedforward_boost` (default 15): adds acceleration-based component. Increase if gyro lags at move *start*; decrease if gyro leads at start.
 - `feedforward_max_rate_limit` (default 90): cuts FF as sticks near max deflection. Raise to 92–95 for crisp move entry on responsive builds.
 - `feedforward_jitter_factor` (BF 4.3+): higher = smoother during slow-stick inputs; lower = snappier for racing.
 - `feedforward_transition` (default 0): blends FF toward zero near stick center, giving a more locked-in center feel. Racing: 0 (full FF throughout); Freestyle/HD: 40; Cinematic: 70. **Set to 0 whenever `feedforward_jitter_factor` is active** — jitter reduction replaces transition for slow-stick smoothing and the two should not be combined.
 
-Note on Crossfire 50 Hz: FF above 1.0 can disrupt the optimal P:D ratio due to the 50 Hz RC link artifact in gyro traces. Keep FF ≤1.0 on Crossfire.
+### Heavy-Lift / Cinematic Quads
+
+For heavy-lift cinema rigs, typical feedforward range is **0.5–1.0**, which reduces end-to-end control latency by approximately **6–12 ms**. This is substantial for smooth camera work and precise positioning.
 
 ---
 
@@ -323,19 +473,38 @@ Adjust `d_min_boost_gain` to control how aggressively D boosts from floor to pea
 
 ---
 
-## Phase 8: TPA
+## Phase 8: TPA (Throttle PID Attenuation)
 
-Use only if high-throttle oscillations persist after filters and PID are tuned.
+Use **only if high-throttle oscillations persist** after filters and PIDs are properly tuned. TPA is a band-aid for high-throttle instability — ideal tuning shouldn't need it.
 
-- `tpa_rate`: attenuation at full throttle (default 65 → PIDs at 35% max throttle)
-- `tpa_breakpoint`: throttle level (1000–2000 range) where attenuation begins
-- `tpa_mode`: `D` (default) or `PD` if both P and D oscillate at high throttle
-- Set breakpoint just below where oscillations appear; increase rate until resolved
+### When to Use TPA
 
-**TPA Low (BF 4.5+)**: Applies D attenuation at the *low* throttle end — helps with D-term shaking during throttle chops:
-- `tpa_low_breakpoint` (default 1050): throttle level below which attenuation begins
-- `tpa_low_rate` (default 20): D reduction percentage at minimum throttle
-- `tpa_low_always` (default OFF): when OFF, active only before Airmode activates; when ON, active throughout the entire flight
+If oscillations appear **only at high throttle** (e.g., above 70% throttle) but the quad is stable at mid-range, TPA can help. This typically indicates:
+- Props producing more noise/vibration at high RPM
+- ESC/motor nonlinearities at high output
+- Aerodynamic effects at high speed
+
+### Configuration
+
+- **`tpa_rate`** (default 65): attenuation percentage at full throttle. Default 65 = PIDs reduced to 35% at max throttle. Increase if oscillations persist.
+- **`tpa_breakpoint`** (default 1350, range 1000–2000): throttle level where attenuation begins. 1350 ≈ 35% throttle.
+  - Set the breakpoint **just below where oscillations appear** (e.g., if oscillations start at 70% throttle, set breakpoint to ~65%)
+  - Then increase rate incrementally until oscillations are eliminated
+- **`tpa_mode`**: 
+  - `D` (default): attenuates D-term only
+  - `PD`: attenuates both P and D if both oscillate at high throttle
+
+### TPA Low (BF 4.5+)
+
+Applies D attenuation at the *low* throttle end — helps with D-term shaking during throttle chops and low-throttle hover:
+
+- **`tpa_low_breakpoint`** (default 1050): throttle level below which attenuation begins
+- **`tpa_low_rate`** (default 20): D reduction percentage at minimum throttle (20 = reduce D to 80% at min throttle)
+- **`tpa_low_always`** (default OFF): 
+  - OFF: active only before Airmode engages (during initial spool-up)
+  - ON: active throughout the entire flight
+
+**Best practice**: Start with standard TPA (high-throttle attenuation) if needed. Only add TPA Low if low-throttle D-term noise is specifically problematic.
 
 ---
 
@@ -343,7 +512,7 @@ Use only if high-throttle oscillations persist after filters and PID are tuned.
 
 These are not PID gains but directly affect flight quality and motor health:
 
-- **`vbat_sag_compensation`** (default 0): compensates for voltage sag as battery depletes, keeping throttle and PID authority consistent across a pack. **90% is a good target** — full 100% compensation at low voltage demands more from the motors at exactly the point where the pack is already under the most stress, which draws more current and accelerates depletion further. 90% delivers most of the consistency benefit while leaving a slight natural taper at the bottom. Since compensation removes the throttle softening that would otherwise signal a depleting pack, configure a low-voltage OSD warning, a battery alarm on your transmitter, or cell voltage telemetry alerts on your RC link.
+- **`vbat_sag_compensation`** (default 0): compensates for voltage sag as battery depletes, keeping throttle and PID authority consistent across a pack. **90% is a good target** — full 100% compensation at low voltage demands even more from the battery at exactly the point where the pack is already under the most stress, which draws more current and accelerates depletion. 90% delivers most of the consistency benefit while leaving a slight natural taper at the bottom, easing battery load during the critical final moments of a flight. Since compensation removes the throttle softening that would otherwise signal a depleting pack, configure a low-voltage OSD warning, a battery alarm on your transmitter, or cell voltage telemetry alerts on your RC link.
 - **`motor_output_limit`** (default 100): reduces per-motor drive signal. Useful when running a higher cell count than the motors were designed for (e.g. 6S on a 4S build → try 66%).
 - **`thrust_linear`** (default 0): improves low-throttle authority and responsiveness, especially useful for whoops and builds running 48 kHz ESCs. Has no effect at higher throttle. **20–40% is typically enough**; avoid going higher without reason.
 - **`throttle_boost`**: transiently boosts throttle on fast throttle inputs for a more immediate throttle feel.
@@ -352,9 +521,12 @@ These are not PID gains but directly affect flight quality and motor health:
 
 ## Dynamic Idle
 
-Prevents motor stall during flips/rolls and propwash. Critical on smaller quads and steep-pitch props. Steeper pitch angle = blade stalls more easily at low RPM = needs higher idle.
+Prevents motor stall during flips/rolls and propwash. Critical on smaller quads and steep-pitch props. **Steeper pitch angle = blade stalls more easily at low RPM = needs higher idle**.
 
-The table below gives a **low-pitch to steep-pitch range** — start in the middle and adjust up for steep-pitch props, down for low-pitch props:
+The table below gives a **low-pitch to steep-pitch range**. The range accounts for prop pitch variation:
+- **Start in the middle** of the range for typical pitch props (e.g., 5" with 4.3" pitch)
+- **Adjust up** for steep-pitch props (e.g., 5" with 5.1" pitch)
+- **Adjust down** for low-pitch props (e.g., 5" with 3.5" pitch)
 
 | Prop size | `dyn_idle_min_rpm` range |
 |-----------|--------------------------|
