@@ -61,6 +61,17 @@ Each `tools/*.ts` file exports a `register*Tools(server: McpServer)` function. `
 
 **Buffer reads in `realtime.ts`**: all use local helper functions (`readU8`, `readU16LE`, `readI16LE`, `readU32LE`, `readI32LE`) that check for `undefined` before returning, satisfying `noUncheckedIndexedAccess`.
 
+`src/tools/sliders.ts` — `get_pid_sliders` / `set_pid_sliders` tools. Uses MSP 140 to read and MSP 142 to apply slider changes.
+
+### Simplified tuning MSP protocol (`src/tools/sliders.ts`)
+
+- **MSP 140** (`GET_SIMPLIFIED_TUNING`): 53-byte response. PID section bytes 0–16, dterm filter 17–34, gyro filter 35–52.
+- **MSP 141** (`SET_SIMPLIFIED_TUNING`): **not used for real-time changes** — Configurator only calls this during full save flows, not when a slider moves.
+- **MSP 142** (`CALCULATE_SIMPLIFIED_PID`): the operative command. Payload = 17-byte PID section only (9×uint8: pids_mode, master, roll_pitch_ratio, i_gain, d_gain, pi_gain, dmax_gain, feedforward, pitch_pi; + 2×uint32 reserved). FC stores the simplified values AND immediately recomputes actual P/I/D gains in RAM. This is what Configurator calls on every slider move.
+- **Slider ↔ uint8 conversion**: `Math.round(float * 100)` for storage; `/ 100` for display. E.g. 1.2 → 120.
+- **CLI `simplified_*` variables are a trap**: setting e.g. `simplified_i_gain = 150` via CLI saves the variable but never triggers PID recalculation. The FC does not auto-recalculate on boot. Configurator's `MSP_VALIDATE_SIMPLIFIED_TUNING` (145) detects the mismatch and disables sliders with a warning. Always use MSP 142 for slider-based PID changes.
+- After MSP 142, `cli_save` persists both slider values and computed P/I/D gains to EEPROM.
+
 ### Code generation (`scripts/generate-variables.ts`)
 
 Fetches three sources in parallel and merges them:
@@ -98,5 +109,6 @@ When implementing new MSP tools or fixing protocol issues, refer to the upstream
 - MSP codes: `https://github.com/betaflight/betaflight-configurator/raw/refs/heads/master/src/js/msp/MSPCodes.js`
 - MSP framing/parsing: `MSPConnector.js`, `MSPHelper.js` in the same directory
 - CLI variables reference: `https://raw.githubusercontent.com/betaflight/betaflight.com/refs/heads/master/docs/development/Cli.md`
+- Slider protocol (authoritative): `src/js/tabs/pid_tuning/TuningSliders.js` in betaflight-configurator — cross-check this when implementing or debugging any simplified tuning MSP work
 - CLI variable names (macros): `https://github.com/betaflight/betaflight/raw/refs/heads/master/src/main/fc/parameter_names.h`
 - CLI variable definitions (authoritative, ~500 vars): `https://github.com/betaflight/betaflight/raw/refs/heads/master/src/main/cli/settings.c`

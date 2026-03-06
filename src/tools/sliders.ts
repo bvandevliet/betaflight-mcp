@@ -147,6 +147,7 @@ export function registerSliderTools(server: McpServer): void {
         const session = requireSession();
         const release = await session.lock();
         try {
+          await session.cliClient.exitCli();
           const buf = await session.mspClient.request(MspCodes.MSP_GET_SIMPLIFIED_TUNING);
           return textResult(JSON.stringify(toDisplay(parseResponse(buf)), null, 2));
         } finally {
@@ -193,7 +194,10 @@ export function registerSliderTools(server: McpServer): void {
         const session = requireSession();
         const release = await session.lock();
         try {
-          // 1. Read current FC slider state (needed for the full payload and pass-through values).
+          // 1. Exit CLI mode if active — the FC ignores MSP frames while in CLI mode.
+          await session.cliClient.exitCli();
+
+          // 2. Read current FC slider state (needed for the full payload and pass-through values).
           const buf = await session.mspClient.request(MspCodes.MSP_GET_SIMPLIFIED_TUNING);
           const current = parseResponse(buf);
 

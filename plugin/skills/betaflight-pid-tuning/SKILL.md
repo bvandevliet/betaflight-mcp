@@ -241,17 +241,14 @@ Yaw is torque-based (inherently slower), so filter delay is less critical here. 
 
 Before PID flights, create clean test conditions.
 
-**Slider tool** (zeros feedforward at the multiplier level; sets a safe I-term baseline):
+**Slider tool** (zeros feedforward, sets safe I-term baseline, disables dynamic D boost for constant D during step response analysis):
 ```
-set_pid_sliders({ feedforward: 0, i_gain: 0.1 })
+set_pid_sliders({ feedforward: 0, i_gain: 0.1, dmax_gain: 0 })
 ```
-Keep I-term very low but not fully zero — enough to prevent slow attitude drift in angle mode without producing I windup during step response analysis. Fully zeroing is also valid, but 0.1 is the safer baseline.
+Keep I-term very low but not fully zero — enough to prevent slow attitude drift in angle mode without producing I windup during step response analysis. Fully zeroing is also valid, but 0.1 is the safer baseline. `dmax_gain: 0` sets the computed `d_max_roll/pitch` to 0, which disables the dynamic D boost so D stays constant at the base `d_roll`/`d_pitch` value throughout the test.
 
-**CLI** (direct variables not covered by the slider system — run via `cli_exec` or the CLI tab):
+**CLI** (direct variables not covered by the slider system — run via `cli_exec`):
 ```
-set d_min_roll = 0
-set d_min_pitch = 0
-set d_min_advance = 0
 set pidsum_limit = 1000
 set pidsum_limit_yaw = 1000
 ```

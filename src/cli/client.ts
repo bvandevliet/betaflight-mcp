@@ -75,6 +75,18 @@ export class CliClient {
     this.inCli = true;
   }
 
+  // Exit CLI mode so the FC returns to normal MSP operation.
+  // Call this (while holding the session lock) before issuing MSP requests
+  // that follow CLI activity — the FC ignores MSP frames while in CLI mode.
+  async exitCli(): Promise<void> {
+    if (!this.inCli) return;
+    this.buffer = '';
+    await this.transport.write(Buffer.from('exit\n'));
+    // Give the FC time to transition back to MSP mode before the next request.
+    await new Promise<void>((r) => setTimeout(r, 300));
+    this.inCli = false;
+  }
+
   async execCommand(cmd: string): Promise<string> {
     const release = await this.lock();
     try {
