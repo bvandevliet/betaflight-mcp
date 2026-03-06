@@ -108,6 +108,50 @@ function encodePidSection(s: RawSliders): Buffer {
   return buf;
 }
 
+// Encodes the full 53-byte payload for MSP_SET_SIMPLIFIED_TUNING (141).
+// Mirrors MSPHelper.crunchSimplifiedTuning() — all three sections must be
+// present so the FC writes the simplified_* variables into pgCopy (working
+// config), making them visible to cli_save.
+function encodeFullPayload(s: RawSliders): Buffer {
+  const buf = Buffer.alloc(53);
+  let o = 0;
+
+  // PID section (17 bytes) — same layout as encodePidSection
+  buf.writeUInt8(s.pids_mode, o++);
+  buf.writeUInt8(s.master_multiplier, o++);
+  buf.writeUInt8(s.roll_pitch_ratio, o++);
+  buf.writeUInt8(s.i_gain, o++);
+  buf.writeUInt8(s.d_gain, o++);
+  buf.writeUInt8(s.pi_gain, o++);
+  buf.writeUInt8(s.dmax_gain, o++);
+  buf.writeUInt8(s.feedforward_gain, o++);
+  buf.writeUInt8(s.pitch_pi_gain, o++);
+  buf.writeUInt32LE(0, o); o += 4; // reserved
+  buf.writeUInt32LE(0, o); o += 4; // reserved  (o = 17)
+
+  // D-term filter section (18 bytes)
+  buf.writeUInt8(s.dterm_filter, o++);
+  buf.writeUInt8(s.dterm_filter_multiplier, o++);
+  buf.writeUInt16LE(s.dterm_lowpass_hz, o); o += 2;
+  buf.writeUInt16LE(s.dterm_lowpass2_hz, o); o += 2;
+  buf.writeUInt16LE(s.dterm_lowpass_dyn_min_hz, o); o += 2;
+  buf.writeUInt16LE(s.dterm_lowpass_dyn_max_hz, o); o += 2;
+  buf.writeUInt32LE(0, o); o += 4; // reserved
+  buf.writeUInt32LE(0, o); o += 4; // reserved  (o = 35)
+
+  // Gyro filter section (18 bytes)
+  buf.writeUInt8(s.gyro_filter, o++);
+  buf.writeUInt8(s.gyro_filter_multiplier, o++);
+  buf.writeUInt16LE(s.gyro_lowpass_hz, o); o += 2;
+  buf.writeUInt16LE(s.gyro_lowpass2_hz, o); o += 2;
+  buf.writeUInt16LE(s.gyro_lowpass_dyn_min_hz, o); o += 2;
+  buf.writeUInt16LE(s.gyro_lowpass_dyn_max_hz, o); o += 2;
+  buf.writeUInt32LE(0, o); o += 4; // reserved
+  buf.writeUInt32LE(0, o);         // reserved  (o = 53)
+
+  return buf;
+}
+
 // Convert raw uint8 gain values back to float slider positions for display.
 function toDisplay(s: RawSliders) {
   return {
@@ -147,6 +191,7 @@ export function registerSliderTools(server: McpServer): void {
         const session = requireSession();
         const release = await session.lock();
         try {
+          await session.cliClient.exitCli();
           const buf = await session.mspClient.request(MspCodes.MSP_GET_SIMPLIFIED_TUNING);
           return textResult(JSON.stringify(toDisplay(parseResponse(buf)), null, 2));
         } finally {
@@ -193,7 +238,10 @@ export function registerSliderTools(server: McpServer): void {
         const session = requireSession();
         const release = await session.lock();
         try {
-          // 1. Read current FC slider state (needed for the full payload and pass-through values).
+          // 1. Exit CLI mode if active — the FC ignores MSP frames while in CLI mode.
+          await session.cliClient.exitCli();
+
+          // 2. Read current FC slider state (needed for the full payload and pass-through values).
           const buf = await session.mspClient.request(MspCodes.MSP_GET_SIMPLIFIED_TUNING);
           const current = parseResponse(buf);
 
@@ -214,12 +262,16 @@ export function registerSliderTools(server: McpServer): void {
           if (args.feedforward      !== undefined) updated.feedforward_gain   = Math.round(args.feedforward      * 100);
           if (args.pitch_pi         !== undefined) updated.pitch_pi_gain      = Math.round(args.pitch_pi         * 100);
 
-          // 3. Send slider values to FC and trigger PID recalculation in one call.
-          //    MSP_CALCULATE_SIMPLIFIED_PID (142) receives the PID slider section as payload,
-          //    stores the simplified_* values in working config, computes actual p/i/d gains,
-          //    and returns the computed values. This mirrors exactly what the Configurator does
-          //    when a slider is moved (MSPHelper.writePidSliderSettings → crunch for code 142).
+          // 3. Compute PIDs in RAM (equivalent to moving a slider in Configurator).
+          //    MSP 142 receives the 17-byte PID section, computes actual p/i/d gains,
+          //    but does NOT write the simplified_* variables into pgCopy.
           await session.mspClient.request(MspCodes.MSP_CALCULATE_SIMPLIFIED_PID, encodePidSection(updated));
+
+          // 4. Write simplified_* variables into pgCopy (the FC's working config).
+          //    MSP 141 with the full 53-byte payload mirrors Configurator's crunchSimplifiedTuning()
+          //    save flow — without this step, cli_save persists the computed p/i/d values but
+          //    simplified_* stays at whatever was in EEPROM, so sliders revert on reboot.
+          await session.mspClient.request(MspCodes.MSP_SET_SIMPLIFIED_TUNING, encodeFullPayload(updated));
 
           return textResult(
             `Sliders applied. Call cli_save to persist.\n\n` +
