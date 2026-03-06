@@ -93,7 +93,7 @@ The MCP server runs alongside this session and exposes these tools:
 Each CLI variable has dedicated `get_<varname>` and `set_<varname>` tools, e.g.:
 - `get_master_multiplier` / `set_master_multiplier`
 - `get_rpm_filter_q` / `set_rpm_filter_q`
-- `set_p_roll`, `set_d_min_roll`, `set_feedforward_roll`, etc.
+- `set_p_roll`, `set_d_max_roll`, `set_feedforward_roll`, etc.
 
 Use these for targeted reads/writes. After setting variables, always call `cli_save` to persist (this reboots the FC). For batch changes, `cli_exec` with a `set varname=value` command is equivalent.
 
@@ -251,6 +251,7 @@ Keep I-term very low but not fully zero — enough to prevent slow attitude drif
 ```
 set pidsum_limit = 1000
 set pidsum_limit_yaw = 1000
+set d_max_advance = 0
 ```
 
 Then `cli_save` to persist all changes.
@@ -445,28 +446,26 @@ For heavy-lift cinema rigs, typical feedforward range is **0.5–1.0**, which re
 
 ---
 
-## Phase 7: Dynamic Damping (Optional)
+## Phase 7: Dynamic Damping
 
 Dynamically boosts D on sharp moves while keeping it low during calm flight. Two use cases:
 1. **Enables higher FF** — D-max absorbs FF-induced overshoot on sharp moves without raising base D noise
-2. **Reduces motor heat** — lower base D (less noise/heat at cruise), D-max restores full damping on moves
+2. **Reduces motor heat** — lower base D (less noise and motor heat at cruise), D-max restores full damping on moves
 
-**CLI naming**: `d_roll` = D_max (peak D on sharp moves); `d_min_roll` = D_min (floor D during calm flight). D_min must always be lower than D_max.
+The default D-max is usually fine. Can be raised if FF is high and overshoot appears on sharp moves, or if propwash is still problematic after optimizing filters and PIDs. Use the D-max slider to adjust.
 
-**Setup procedure** (after PD balance is found with static D):
-1. Note your current `d_roll` value from PD balance (e.g. 30) — this is D_max, the full damping on sharp moves
-2. Set `d_min_roll` to a lower value (e.g. 15) — this is D_min, the floor during calm flight
-   - A common starting point: D_min ≈ 50% of D_max
-   - Result: calm flight uses D_min → less noise and motor heat; sharp moves boost up to D_max → good damping
-3. Increasing `d_roll` (D_max) further allows even higher FF gains without overshoot, at the cost of more D noise during sharp moves
+**Slider tool** (restore dynamic D boost back to default since it was disabled in Phase 2):
+```
+set_pid_sliders({ dmax_gain: 1 })
+```
 
-Tune with `set debug_mode = D_MIN` in blackbox and verify the D_MIN trace:
-- Calm flight: D sits at `d_min_roll` (D_min floor)
-- Sharp moves: D boosts up toward `d_roll` (D_max)
+**Optionally** tune with `set debug_mode = D_MAX` in blackbox and verify the D_max trace:
+- Calm flight: D sits at `d_roll` (D_min floor)
+- Sharp moves: D boosts up toward `d_max_roll` (D_max)
 
-Adjust `d_min_boost_gain` to control how aggressively D boosts from floor to peak on sharp moves. **`d_min_advance` must always stay at 0.**
+Adjust `d_max_gain` to control how aggressively D boosts from floor to peak on sharp moves. **`d_max_advance` must always stay at 0.**
 
-**Important:** `d_min_boost_gain` must remain above ~20 (the default is fine). If both `d_min_boost_gain` and `d_min_advance` are zero, D is locked at the D_min floor and will never boost toward D_max — the Dynamic Damping feature is effectively disabled.
+**Important:** `d_max_gain` must remain above ~20 (the default is fine). If both `d_max_gain` and `d_max_advance` are zero, D is locked at the D_min floor and will never boost toward D_max — the Dynamic Damping feature is effectively disabled.
 
 ---
 
@@ -676,7 +675,7 @@ For full documentation, read `references/betaflight-docs/general/development-cli
 
 **Filters:** `gyro_lpf1_static_hz`, `gyro_lpf2_static_hz`, `rpm_filter_q`, `rpm_filter_weights`, `rpm_filter_min_hz`, `rpm_filter_fade_range_hz`, `dyn_notch_count`, `dyn_notch_min_hz`, `dyn_notch_max_hz`, `dyn_notch_q`, `dterm_lpf1_type`, `dterm_lpf1_dyn_min_hz`, `dterm_lpf1_dyn_max_hz`, `dterm_lpf1_dyn_expo`, `yaw_lowpass_hz`
 
-**PID gains:** `p_roll`, `p_pitch`, `p_yaw`, `i_roll`, `i_pitch`, `i_yaw`, `d_roll`, `d_pitch`, `d_min_roll`, `d_min_pitch`, `feedforward_roll`, `feedforward_pitch`, `feedforward_yaw`, `master_multiplier`
+**PID gains:** `p_roll`, `p_pitch`, `p_yaw`, `i_roll`, `i_pitch`, `i_yaw`, `d_roll`, `d_pitch`, `d_max_roll`, `d_max_pitch`, `feedforward_roll`, `feedforward_pitch`, `feedforward_yaw`, `master_multiplier`
 
 **I-term:** `iterm_relax`, `iterm_relax_type`, `iterm_relax_cutoff`, `iterm_windup`, `anti_gravity_gain`, `anti_gravity_p_gain`, `anti_gravity_cutoff_hz`
 
