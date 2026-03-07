@@ -94,7 +94,7 @@ Each CLI variable has dedicated `get_<varname>` and `set_<varname>` tools, e.g.:
 - `get_rpm_filter_q` / `set_rpm_filter_q`
 - `get_anti_gravity_gain` / `set_anti_gravity_gain`, `get_iterm_relax` / `set_iterm_relax`, etc.
 
-Use these for targeted reads/writes. After setting variables, always call `cli_save` to persist (this reboots the FC). For batch changes, `cli_exec` with a `set varname=value` command is equivalent.
+Use these for targeted reads/writes. After setting variables, always call `cli_save` to persist (this reboots the FC). For batch changes, `cli_exec` with a `set varname=value` command is equivalent. Always prefer using variable tools over `cli_exec` for reading/writing variables.
 
 ---
 
@@ -102,9 +102,9 @@ Use these for targeted reads/writes. After setting variables, always call `cli_s
 
 1. Connect: `list_serial_ports` → `connect_flight_controller`
 2. Orient: `get_version` then `cli_diff` to see all non-default settings
-3. Read any specific current values with `get_<varname>` or `cli_exec "get <varname>"`
+3. Read any specific current values with `get_<varname>` (preferred) or `cli_exec "get <varname>"` (alternative)
 4. Explain proposed changes to the user before applying them
-5. Apply via `set_<varname>` or `cli_exec "set varname=value"`
+5. Apply via `set_<varname>` (preferred) or `cli_exec "set varname=value"` (alternative)
 6. Save with `cli_save` (reboots the FC — warn the user)
 7. Verify with another read after reconnect if needed
 
