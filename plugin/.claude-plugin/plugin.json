@@ -1,6 +1,6 @@
 {
   "name": "betaflight-mcp",
-  "version": "2.0.0",
+  "version": "1.0.0",
   "description": "Expert Betaflight FPV quad tuning assistant. Combines PIDtoolbox basement tuning methodology with Chris Rosser's filter and PID theory. Has direct access to the Betaflight MCP server for real-time FC configuration.",
   "author": {
     "name": "Bob Vandevliet",
