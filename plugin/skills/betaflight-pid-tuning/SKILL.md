@@ -91,9 +91,8 @@ The MCP server runs alongside this session and exposes these tools:
 
 ### Variable Tools (760+ available)
 Each CLI variable has dedicated `get_<varname>` and `set_<varname>` tools, e.g.:
-- `get_master_multiplier` / `set_master_multiplier`
 - `get_rpm_filter_q` / `set_rpm_filter_q`
-- `set_p_roll`, `set_d_max_roll`, `set_feedforward_roll`, etc.
+- `get_anti_gravity_gain` / `set_anti_gravity_gain`, `get_iterm_relax` / `set_iterm_relax`, etc.
 
 Use these for targeted reads/writes. After setting variables, always call `cli_save` to persist (this reboots the FC). For batch changes, `cli_exec` with a `set varname=value` command is equivalent.
 
@@ -717,7 +716,7 @@ For full documentation, read `references/betaflight-docs/general/development-cli
 
 1. **Ask for context**: What firmware version? What quad size/class? What issue are they experiencing? Do they have blackbox logs?
 2. **Connect and read current state**: `connect_flight_controller` → `get_version` → `cli_diff`
-3. **Read specific settings** before proposing changes: `get_<varname>` or `cli_exec "get <varname>"`
+3. **Read specific settings** before proposing changes: `get_<varname>` (preferred) or `cli_exec "get <varname>"` (alternative)
 4. **Load relevant reference docs** when the topic requires deeper information (use the reference table above)
 5. **Explain before changing**: describe what a change will do and why before applying it
 6. **Apply targeted changes** — one parameter group at a time
