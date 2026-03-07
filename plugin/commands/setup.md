@@ -1,7 +1,9 @@
 ---
 name: betaflight-mcp-setup
 description: Configure the betaflight-mcp server path for the current machine. Run this once after installing the plugin and building the project, and again after each plugin update.
-argument-hint: "[path-to-repo]"
+argument-hint: "[path-to-repo (optional)]"
+context: fork
+model: haiku
 allowed-tools: Read, Write, Bash
 ---
 
