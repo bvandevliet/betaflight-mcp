@@ -256,9 +256,10 @@ function parseLocalCliRef(text: string): Map<string, CliMdEntry> {
   const map = new Map<string, CliMdEntry>();
   if (!text) return map;
 
-  // Match table rows: | `varname` | default | range | description |
+  // Match 4-column table rows: | `varname` | default | range | description |
+  // [^|\n] excludes both pipes and newlines to prevent matching across multiple lines.
   const rowRegex =
-    /^\|\s*`([a-z][a-z0-9_]+)`\s*\|\s*([^|]*?)\s*\|\s*([^|]*?)\s*\|\s*([^|]+?)\s*\|/gm;
+    /^\|\s*`([a-z][a-z0-9_]+)`\s*\|\s*([^|\n]*?)\s*\|\s*([^|\n]*?)\s*\|\s*([^|\n]+?)\s*\|/gm;
 
   let match: RegExpExecArray | null;
   while ((match = rowRegex.exec(text)) !== null) {
@@ -450,7 +451,7 @@ async function main(): Promise<void> {
     lines.push(`  server.registerTool(`);
     lines.push(`    'get_${toolName}',`);
     lines.push(`    {`);
-    lines.push(`    description: 'Get ${toolName}: ${desc}',`);
+    lines.push(`      description: 'Get ${toolName}: ${desc}',`);
     lines.push(`    },`);
     lines.push(`    async () => {`);
     lines.push(`      const session = requireSession();`);

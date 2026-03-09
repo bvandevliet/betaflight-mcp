@@ -25,6 +25,7 @@
       "Bash(npx tsx:*)",
       "Bash(npx tsc:*)",
       "Bash(node:*)",
+      "Bash(pnpm tsx:*)",
       "Bash(pnpm typecheck)",
       "Bash(pnpm build)",
       "Bash(pnpm generate:*)"
