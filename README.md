@@ -10,7 +10,7 @@ An MCP (Model Context Protocol) server that exposes Betaflight flight controller
 
 - Real-time sensor reads — attitude, IMU, GPS, RC channels, motors, battery
 - Full CLI access — feature flags, variable get/set, dump/diff, save, defaults
-- Auto-generated variable tools: ~762 CLI-configurable variables each exposed as a `get_<name>` / `set_<name>` tool pair, derived from the Betaflight firmware source
+- Auto-generated variable tools: ~750 CLI-configurable variables each exposed as a `get_<name>` / `set_<name>` tool pair, derived from the Betaflight firmware source
 - Expert PID tuning skill — automatically activates in Claude Code when tuning topics come up
 
 ## Claude Code Plugin
@@ -28,23 +28,23 @@ pnpm install
 pnpm build
 ```
 
-**2. Add the local marketplace** — in Claude Code, run:
+**2. Add the local marketplace**:
 
-```
-/plugin marketplace add /path/to/betaflight-mcp
+```bash
+claude plugin marketplace add /path/to/betaflight-mcp
+claude plugin install betaflight-mcp@betaflight-mcp
 ```
 
 Replace `/path/to/betaflight-mcp` with the absolute path to your cloned repository (the repo root, not the `plugin/` subdirectory).
 
-**3. Install the plugin** — run `/plugin` to open the plugin manager, go to the **Discover** tab, find `betaflight-mcp`, and install it.
+**3. Configure the server path and whitelist read tools** — run the setup script:
 
-**4. Configure the server path** — run the setup command:
-
+```bash
+pnpm run setup
+pnpm whitelist-reads
 ```
-/betaflight-mcp-setup
-```
 
-This replaces the placeholder in the cached plugin's `.mcp.json` with the absolute path to `dist/server.js` on your machine. The repo's `plugin/.mcp.json` is left untouched so the placeholder stays clean for git. Restart Claude Code afterwards.
+This replaces the placeholder in the cached plugin's `.mcp.json` with the absolute path to `dist/server.js` on your machine. The repo's `plugin/.mcp.json` is left untouched so the placeholder stays clean for git. Restart Claude Code afterwards. The whitelist script adds all read-only MCP tools to the allowed tools list of Claude, so you don't have to manually approve them all the time. Write access tools are never whitelisted by default for safety.
 
 ### Updating the plugin
 
@@ -52,15 +52,22 @@ After pulling new changes from the repo, rebuild and reinstall the plugin:
 
 ```bash
 pnpm build
+claude plugin uninstall betaflight-mcp@betaflight-mcp
+claude plugin install betaflight-mcp@betaflight-mcp
 ```
 
-Then in Claude Code, go to `/plugin` → **Installed** tab, uninstall `betaflight-mcp`, switch to **Discover**, and reinstall it. Run `/betaflight-mcp-setup` again afterwards — reinstalling overwrites the cached `.mcp.json` with the placeholder.
+Then re-run the setup and whitelist scripts:
 
-> **Claude Desktop users:** The plugin system is a Claude Code (CLI) feature and is not available in Claude Desktop. Claude Desktop users configure the MCP server manually via `claude_desktop_config.json` (see platform-specific setup below) — this gives full access to all ~1554 tools. The PID tuning skill does not auto-activate in Claude Desktop; as a workaround, create a [Claude Project](https://support.anthropic.com/en/articles/9517075-what-are-projects) and attach `plugin/skills/betaflight-pid-tuning/SKILL.md` as project knowledge so it is always in context.
+```bash
+pnpm run setup
+pnpm whitelist-reads
+```
+
+> **Claude Desktop users:** The plugin system is a Claude Code (CLI) feature and is not available in Claude Desktop. Claude Desktop users configure the MCP server manually via `claude_desktop_config.json` (see platform-specific setup below) — this gives full access to all ~1500 tools. The PID tuning skill does not auto-activate in Claude Desktop; as a workaround, create a [Claude Project](https://support.anthropic.com/en/articles/9517075-what-are-projects) and attach `plugin/skills/betaflight-pid-tuning/SKILL.md` as project knowledge so it is always in context.
 
 ## CLI commands and variables as MCP tools
 
-All CLI-configurable variables are exposed as individual `get_<name>` / `set_<name>` tool pairs, auto-generated from the Betaflight firmware source (`settings.c`, ~762 variables), enriched with descriptions from the CLI reference docs.
+All CLI-configurable variables are exposed as individual `get_<name>` / `set_<name>` tool pairs, auto-generated from the Betaflight firmware source (`settings.c`, ~750 variables), enriched with descriptions from the CLI reference docs.
 
 Run `pnpm generate` to regenerate `src/generated/variables.ts` after a Betaflight release.
 

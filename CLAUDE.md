@@ -78,7 +78,7 @@ Each `tools/*.ts` file exports a `register*Tools(server: McpServer)` function. `
 Fetches three sources in parallel and merges them:
 
 1. **`parameter_names.h`** — resolves `PARAM_NAME_*` macros to CLI string names.
-2. **`settings.c`** — authoritative variable list (~762 vars). Parsed via a brace-depth state machine that extracts each `valueTable[]` entry. Provides var type (`VAR_UINT8` etc.), scope (`MASTER`/`PROFILE`/etc.), mode flags (`MODE_LOOKUP`/`MODE_BITSET`/etc.), and numeric ranges from `.config.minmax` / `.config.minmaxUnsigned` / `.config.u32Max`.
+2. **`settings.c`** — authoritative variable list (~750 vars). Parsed via a brace-depth state machine that extracts each `valueTable[]` entry. Provides var type (`VAR_UINT8` etc.), scope (`MASTER`/`PROFILE`/etc.), mode flags (`MODE_LOOKUP`/`MODE_BITSET`/etc.), and numeric ranges from `.config.minmax` / `.config.minmaxUnsigned` / `.config.u32Max`.
 3. **`Cli.md`** — ~106 vars with human descriptions and default values; used only to enrich C-derived entries. **Never a fallback source**: 31 Cli.md entries are removed/renamed vars absent from current firmware. If `settings.c` is unavailable, the generator exits with an error.
 
 Datatype → Zod schema mapping: integer types → `z.number().int().min().max()`, `FLOAT` → `z.number().min().max()`, `MODE_LOOKUP` → `z.string()`, `MODE_BITSET` → `z.enum(['OFF', 'ON'])`, ON/OFF min/max → `z.enum(['OFF', 'ON'])`, anything else → `z.string()`. Range bounds omitted when only symbolic constants (e.g. `LPF_MAX_HZ`) are used; FC enforces bounds at runtime.
