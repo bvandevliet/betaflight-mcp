@@ -71,6 +71,8 @@ export const MspCodes = {
   MSP_GET_SIMPLIFIED_TUNING:      140,
   MSP_SET_SIMPLIFIED_TUNING:      141,
   MSP_CALCULATE_SIMPLIFIED_PID:   142,
+  MSP_CALCULATE_SIMPLIFIED_GYRO:  143,
+  MSP_CALCULATE_SIMPLIFIED_DTERM: 144,
 
   // ── Profiles ──────────────────────────────────────────────────────────────
   MSP_SELECT_SETTING:         210,  // switch active PID/rate profile (0-indexed)

@@ -21,8 +21,6 @@ Read these files when the topic comes up. They are in `references/` relative to 
 | Topic | File |
 |-------|------|
 | **CLI variable reference (complete — all variables with descriptions, defaults, ranges)** | `references/betaflight-docs/general/development-cli-reference.md` |
-| **CLI commands — 2025.12 raw dump (ranges, defaults, no descriptions)** | `references/betaflight-docs/general/betaflight-2025.12-cli-commands.md` |
-| **CLI commands — 4.5 raw dump (ranges, defaults, no descriptions)** | `references/betaflight-docs/general/betaflight-4.5-cli-commands.md` |
 | PID theory fundamentals | `references/betaflight-docs/general/development-pid-tuning.md` |
 | BF 4.3 tuning notes (slider system) | `references/betaflight-docs/tuning-notes/betaflight-4.3-tuning-notes.md` |
 | BF 4.2 / 4.1 / 4.0 tuning notes | `references/betaflight-docs/tuning-notes/betaflight-4.2-tuning-notes.md` (and siblings) |
@@ -47,7 +45,7 @@ Read these files when the topic comes up. They are in `references/` relative to 
 | GPS Rescue — 4.4 | `references/betaflight-docs/guides/guides-gps-rescue-v4.4.md` |
 | GPS Rescue — 4.1 to 4.3 | `references/betaflight-docs/guides/guides-gps-rescue-mode-v4.1-to-v4.3.md` |
 
-**When SKILL.md inline content is sufficient** (common tuning workflow, the 8-phase sequence, dynamic idle table, I-term relax cutoff table, symptom guide, key variable names) — trust it and skip loading reference files. Load references when: (a) the user asks about a specific variable or behaviour not covered inline, (b) you need to verify an exact range or default, or (c) the user's question requires feature-specific depth beyond the inline summary. For variable lookups, `development-cli-reference.md` is the single complete source of truth — load it directly. Load the raw CLI dumps (`betaflight-2025.12-cli-commands.md` / `betaflight-4.5-cli-commands.md`) only when you need exact numeric defaults for a specific firmware version. Load the feature guides alongside the CLI reference when deep feature context is needed.
+**When SKILL.md inline content is sufficient** (common tuning workflow, the 8-phase sequence, dynamic idle table, I-term relax cutoff table, symptom guide, key variable names) — trust it and skip loading reference files. Load references when: (a) the user asks about a specific variable or behaviour not covered inline, (b) you need to verify an exact range or default, or (c) the user's question requires feature-specific depth beyond the inline summary. For variable lookups, `development-cli-reference.md` is the single complete source of truth — load it directly. Load raw CLI dumps only when you need exact numeric defaults for a specific firmware version. Load the feature guides alongside the CLI reference when deep feature context is needed.
 
 ---
 
@@ -85,17 +83,18 @@ The MCP server runs alongside this session and exposes these tools:
 - `get_mixer`, `get_serial_config`, `get_aux_config`, `get_channel_map`
 - `motor_get` / `motor_set` — read/drive motors (armed state)
 
-### Simplified Tuning Sliders
-- `get_pid_sliders` — read current slider values as floats (1.0 = default/100%). Returns `master`, `roll_pitch_ratio`, `i_gain`, `d_gain`, `pi_gain`, `dmax_gain`, `feedforward`, `pitch_pi`, and `pids_mode`.
+### Simplified Filter and Tuning Sliders
+- `get_pid_sliders` — read current slider values as floats (1.0 = default/100%). Returns `master`, `roll_pitch_ratio`, `i_gain`, `d_gain`, `pi_gain`, `dmax_gain`, `feedforward`, `pitch_pi`, `pids_mode`, `gyro_filter_multiplier` and `dterm_filter_multiplier`.
 - `set_pid_sliders` — set one or more sliders by float value; the FC immediately recalculates actual P/I/D gains (equivalent to moving a slider in Configurator). Provide only the fields to change; all others keep current values. Automatically enables simplified tuning if disabled. Call `cli_save` to persist. Example: `set_pid_sliders({ master: 1.2, i_gain: 0.1, feedforward: 0 })`
 
 ### Variable Tools (760+ available)
 Each CLI variable has dedicated `get_<varname>` and `set_<varname>` tools, e.g.:
-- `get_master_multiplier` / `set_master_multiplier`
 - `get_rpm_filter_q` / `set_rpm_filter_q`
-- `set_p_roll`, `set_d_max_roll`, `set_feedforward_roll`, etc.
+- `get_anti_gravity_gain` / `set_anti_gravity_gain`, `get_iterm_relax` / `set_iterm_relax`, etc.
 
-Use these for targeted reads/writes. After setting variables, always call `cli_save` to persist (this reboots the FC). For batch changes, `cli_exec` with a `set varname=value` command is equivalent.
+Always prefer these over `cli_exec "get|set <varname>"` for reading/writing variables — including batch operations (call tools sequentially). After setting variables, always call `cli_save` to persist (this reboots the FC). Reserve `cli_exec` for commands that have no dedicated tool: `rxrange`, `rxfail`, `adjrange`, `resource`, `dma`, `timer`, `led`/`color`/`mode_color`, `mmix`/`smix`/`servo` (tables), `serialpassthrough`, `dshotprog`, `bind_rx`, `bl`, `msc`, `rc_smoothing_info`, `dshot_telemetry_info`, `vtx_info`, `flash_info`, `batch start|end`.
+
+> **Important**: Always call Betaflight MCP tools sequentially — never in parallel. The CLI interface serialises all commands through a FIFO mutex; issuing concurrent calls is not safe.
 
 ---
 
@@ -103,9 +102,9 @@ Use these for targeted reads/writes. After setting variables, always call `cli_s
 
 1. Connect: `list_serial_ports` → `connect_flight_controller`
 2. Orient: `get_version` then `cli_diff` to see all non-default settings
-3. Read any specific current values with `get_<varname>` or `cli_exec "get <varname>"`
+3. Read any specific current values with `get_<varname>` (preferred) or `cli_exec "get <varname>"` (alternative)
 4. Explain proposed changes to the user before applying them
-5. Apply via `set_<varname>` or `cli_exec "set varname=value"`
+5. Apply via `set_<varname>` (preferred) or `cli_exec "set varname=value"` (alternative)
 6. Save with `cli_save` (reboots the FC — warn the user)
 7. Verify with another read after reconnect if needed
 
@@ -717,7 +716,7 @@ For full documentation, read `references/betaflight-docs/general/development-cli
 
 1. **Ask for context**: What firmware version? What quad size/class? What issue are they experiencing? Do they have blackbox logs?
 2. **Connect and read current state**: `connect_flight_controller` → `get_version` → `cli_diff`
-3. **Read specific settings** before proposing changes: `get_<varname>` or `cli_exec "get <varname>"`
+3. **Read specific settings** before proposing changes: `get_<varname>` (preferred) or `cli_exec "get <varname>"` (alternative)
 4. **Load relevant reference docs** when the topic requires deeper information (use the reference table above)
 5. **Explain before changing**: describe what a change will do and why before applying it
 6. **Apply targeted changes** — one parameter group at a time
