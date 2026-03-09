@@ -21,8 +21,6 @@ Read these files when the topic comes up. They are in `references/` relative to 
 | Topic | File |
 |-------|------|
 | **CLI variable reference (complete — all variables with descriptions, defaults, ranges)** | `references/betaflight-docs/general/development-cli-reference.md` |
-| **CLI commands — 2025.12 raw dump (ranges, defaults, no descriptions)** | `references/betaflight-docs/general/betaflight-2025.12-cli-commands.md` |
-| **CLI commands — 4.5 raw dump (ranges, defaults, no descriptions)** | `references/betaflight-docs/general/betaflight-4.5-cli-commands.md` |
 | PID theory fundamentals | `references/betaflight-docs/general/development-pid-tuning.md` |
 | BF 4.3 tuning notes (slider system) | `references/betaflight-docs/tuning-notes/betaflight-4.3-tuning-notes.md` |
 | BF 4.2 / 4.1 / 4.0 tuning notes | `references/betaflight-docs/tuning-notes/betaflight-4.2-tuning-notes.md` (and siblings) |
@@ -47,7 +45,7 @@ Read these files when the topic comes up. They are in `references/` relative to 
 | GPS Rescue — 4.4 | `references/betaflight-docs/guides/guides-gps-rescue-v4.4.md` |
 | GPS Rescue — 4.1 to 4.3 | `references/betaflight-docs/guides/guides-gps-rescue-mode-v4.1-to-v4.3.md` |
 
-**When SKILL.md inline content is sufficient** (common tuning workflow, the 8-phase sequence, dynamic idle table, I-term relax cutoff table, symptom guide, key variable names) — trust it and skip loading reference files. Load references when: (a) the user asks about a specific variable or behaviour not covered inline, (b) you need to verify an exact range or default, or (c) the user's question requires feature-specific depth beyond the inline summary. For variable lookups, `development-cli-reference.md` is the single complete source of truth — load it directly. Load the raw CLI dumps (`betaflight-2025.12-cli-commands.md` / `betaflight-4.5-cli-commands.md`) only when you need exact numeric defaults for a specific firmware version. Load the feature guides alongside the CLI reference when deep feature context is needed.
+**When SKILL.md inline content is sufficient** (common tuning workflow, the 8-phase sequence, dynamic idle table, I-term relax cutoff table, symptom guide, key variable names) — trust it and skip loading reference files. Load references when: (a) the user asks about a specific variable or behaviour not covered inline, (b) you need to verify an exact range or default, or (c) the user's question requires feature-specific depth beyond the inline summary. For variable lookups, `development-cli-reference.md` is the single complete source of truth — load it directly. Load raw CLI dumps only when you need exact numeric defaults for a specific firmware version. Load the feature guides alongside the CLI reference when deep feature context is needed.
 
 ---
 
