@@ -42,4 +42,4 @@ Claude Code caches the plugin at install time in `~/.claude/plugins/cache/`. Thi
    - The cached file that was updated
    - The path that was configured
    - That they should restart Claude Code for the MCP server to take effect
-   - Remind them the server connects to their FC when they say: "Connect to my flight controller on COM3" (Windows) or "Connect to my flight controller on /dev/ttyACM0" (Linux/macOS)
+   - Remind them the server connects to their FC when they say: "Connect to my FPV quad"
