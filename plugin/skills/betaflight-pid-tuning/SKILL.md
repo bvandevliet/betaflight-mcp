@@ -92,7 +92,9 @@ Each CLI variable has dedicated `get_<varname>` and `set_<varname>` tools, e.g.:
 - `get_rpm_filter_q` / `set_rpm_filter_q`
 - `get_anti_gravity_gain` / `set_anti_gravity_gain`, `get_iterm_relax` / `set_iterm_relax`, etc.
 
-Use these for targeted reads/writes. After setting variables, always call `cli_save` to persist (this reboots the FC). For batch changes, `cli_exec` with a `set varname=value` command is equivalent. Always prefer using variable tools over `cli_exec` for reading/writing variables.
+Always prefer these over `cli_exec "get|set <varname>"` for reading/writing variables — including batch operations (call tools sequentially). After setting variables, always call `cli_save` to persist (this reboots the FC). Reserve `cli_exec` for commands that have no dedicated tool: `rxrange`, `rxfail`, `adjrange`, `resource`, `dma`, `timer`, `led`/`color`/`mode_color`, `mmix`/`smix`/`servo` (tables), `serialpassthrough`, `dshotprog`, `bind_rx`, `bl`, `msc`, `rc_smoothing_info`, `dshot_telemetry_info`, `vtx_info`, `flash_info`, `batch start|end`.
+
+> **Important**: Always call Betaflight MCP tools sequentially — never in parallel. The CLI interface serialises all commands through a FIFO mutex; issuing concurrent calls is not safe.
 
 ---
 
