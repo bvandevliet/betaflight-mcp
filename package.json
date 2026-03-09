@@ -15,7 +15,9 @@
     "dev": "tsx src/server.ts",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src/"
+    "lint": "eslint src/",
+    "setup": "node scripts/setup.mjs",
+    "whitelist-reads": "node scripts/whitelist-reads.mjs"
   },
   "author": "Bob Vandevliet",
   "license": "AGPL-3.0-only",

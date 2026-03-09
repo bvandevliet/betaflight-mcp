@@ -6,7 +6,7 @@
  *
  * Sources:
  *  - parameter_names.h        — resolves PARAM_NAME_* macros → CLI string names (fetched)
- *  - settings.c               — authoritative variable list (~762 vars), types, ranges (fetched)
+ *  - settings.c               — authoritative variable list (~750 vars), types, ranges (fetched)
  *  - development-cli-reference.md — descriptions and defaults (read from local plugin skill files)
  *
  * Run: pnpm generate
