@@ -541,7 +541,7 @@ The table below gives a **low-pitch to steep-pitch range**. The range accounts f
 | 12"       | 9–17   |
 | 13"       | 7–15   |
 
-Enable dynamic idle: `set dyn_idle_min_rpm = 30` (adjust per table; any nonzero value enables it). Required companion: `set transient_throttle_limit = 0`.
+Enable dynamic idle: `set dyn_idle_min_rpm = 30` (adjust per table; any nonzero value enables it). Required companion: `set transient_throttle_limit = 0`. Also make sure that the `motor_kv` variable is set correctly, as it affects related internal calculations.
 
 ---
 
