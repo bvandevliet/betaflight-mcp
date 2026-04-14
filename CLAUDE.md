@@ -61,18 +61,18 @@ Each `tools/*.ts` file exports a `register*Tools(server: McpServer)` function. `
 
 **Buffer reads in `realtime.ts`**: all use local helper functions (`readU8`, `readU16LE`, `readI16LE`, `readU32LE`, `readI32LE`) that check for `undefined` before returning, satisfying `noUncheckedIndexedAccess`.
 
-`src/tools/sliders.ts` — `get_pid_sliders` / `set_pid_sliders` tools. Uses MSP 140 to read and MSP 142 to apply slider changes.
+`src/tools/sliders.ts` — `get_pid_sliders` / `set_pid_sliders` tools. Uses MSP 140 to read; MSP 143/144 to preview filter Hz; MSP 141 to commit all simplified_* vars and recompute gains.
 
 `src/tools/system.ts` — system management tools: `reboot_flight_controller`, `calibrate_accelerometer`, `calibrate_magnetometer`, `get_dataflash_summary`, `erase_blackbox_logs`, `get_arming_disable_flags`, `get_current_profile`, `set_pid_profile`, `set_rate_profile`, `copy_pid_profile`, `preflight_check`.
 
 ### Simplified tuning MSP protocol (`src/tools/sliders.ts`)
 
 - **MSP 140** (`GET_SIMPLIFIED_TUNING`): 53-byte response. PID section bytes 0–16, dterm filter 17–34, gyro filter 35–52.
-- **MSP 141** (`SET_SIMPLIFIED_TUNING`): writes the `simplified_*` variables into the FC's working config (pgCopy) using the full 53-byte payload. **Must be called after MSP 142** so that `cli_save` persists the slider values — without it, only the computed p/i/d gains are saved and the sliders revert to EEPROM defaults on reboot.
-- **MSP 142** (`CALCULATE_SIMPLIFIED_PID`): the real-time operative command. Payload = 17-byte PID section only (9×uint8: pids_mode, master, roll_pitch_ratio, i_gain, d_gain, pi_gain, dmax_gain, feedforward, pitch_pi; + 2×uint32 reserved). Computes actual P/I/D gains in RAM but does **not** update `simplified_*` in pgCopy. This is what Configurator calls on every slider move.
-- **Correct save flow**: MSP 142 (compute gains) → MSP 141 full 53-byte payload (write simplified_* to pgCopy) → `cli_save` (persist pgCopy to EEPROM).
+- **MSP 141** (`SET_SIMPLIFIED_TUNING`): the operative commit command. Reads all simplified_* control vars from the full 53-byte payload, writes them to pgCopy, then calls `applySimplifiedTuning()` internally — computing PID gains + gyro/dterm filter Hz in one step. Without this, `cli_save` persists the computed p/i/d values but simplified_* reverts to EEPROM defaults on reboot.
+- **MSP 142** (`CALCULATE_SIMPLIFIED_PID`): preview command used by Configurator on every slider move. Operates on a temp copy, returns computed p/i/d/f values. **Not called by `set_pid_sliders`** — MSP 141 handles PID recalculation internally.
+- **Correct save flow**: MSP 143/144 (optional: compute filter Hz for updated payload) → MSP 141 full 53-byte payload (write simplified_* + recompute all gains) → `cli_save` (persist pgCopy to EEPROM).
 - **Slider ↔ uint8 conversion**: `Math.round(float * 100)` for storage; `/ 100` for display. E.g. 1.2 → 120.
-- **CLI `simplified_*` variables are a trap**: setting e.g. `simplified_i_gain = 150` via CLI saves the variable but never triggers PID recalculation. The FC does not auto-recalculate on boot. Configurator's `MSP_VALIDATE_SIMPLIFIED_TUNING` (145) detects the mismatch and disables sliders with a warning. Always use MSP 142 + 141 for slider-based PID changes.
+- **CLI `simplified_*` variables require `simplified_tuning apply`**: setting e.g. `simplified_i_gain = 150` via CLI saves the variable but never triggers PID recalculation. The FC does not auto-recalculate on boot. Configurator's `MSP_VALIDATE_SIMPLIFIED_TUNING` (145) detects the mismatch and disables sliders with a warning. **Valid CLI flow**: `set simplified_* = value` → `simplified_tuning apply` → `save`. CLI `apply` is functionally equivalent to MSP 142+143+144+141 but **recalculates all PID profiles**, not just the active one. Prefer `set_pid_sliders` (MSP path) when targeting only the active profile.
 - **CLI mode and MSP**: The FC ignores MSP frames while in CLI mode. Call `session.cliClient.exitCli()` (under the session lock) before any MSP request that may follow CLI activity.
 
 ### Code generation (`scripts/generate-variables.ts`)
