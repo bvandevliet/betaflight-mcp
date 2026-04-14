@@ -56,6 +56,7 @@ The MCP server runs alongside this session and exposes these tools:
 ### Connection
 - `list_serial_ports` — find available ports (run first if port is unknown)
 - `connect_flight_controller` — connect by port (e.g. `COM3`, `/dev/ttyUSB0`) and optional baud rate (default 115200)
+- `reconnect_flight_controller` — reconnect on the same port/baud after `cli_save` reboots the FC
 - `disconnect_flight_controller` — close the connection
 
 ### Realtime Sensors
@@ -83,9 +84,22 @@ The MCP server runs alongside this session and exposes these tools:
 - `get_mixer`, `get_serial_config`, `get_aux_config`, `get_channel_map`
 - `motor_get` / `motor_set` — read/drive motors (armed state)
 
+### System Management
+- `get_current_profile` — read active PID profile index and rate profile index
+- `set_pid_profile` — switch active PID profile (0–2); does not save — call `cli_save` if you want to persist
+- `set_rate_profile` — switch active rate profile (0–2)
+- `copy_pid_profile` — copy one PID profile to another (useful for A/B testing)
+- `get_arming_disable_flags` — read all flags preventing arming (essential for troubleshooting "won't arm")
+- `preflight_check` — run arming readiness check and return a structured status summary
+- `reboot_flight_controller` — reboot the FC without saving (triggers reconnect)
+- `calibrate_accelerometer` — calibrate acc (FC must be level and stationary)
+- `calibrate_magnetometer` — calibrate compass if equipped
+- `get_dataflash_summary` — read blackbox flash usage (sectors used, free, total)
+- `erase_blackbox_logs` — erase all blackbox data from onboard flash
+
 ### Simplified Filter and Tuning Sliders
 - `get_pid_sliders` — read current slider values as floats (1.0 = default/100%). Returns `master`, `roll_pitch_ratio`, `i_gain`, `d_gain`, `pi_gain`, `dmax_gain`, `feedforward`, `pitch_pi`, `pids_mode`, `gyro_filter_multiplier` and `dterm_filter_multiplier`.
-- `set_pid_sliders` — set one or more sliders by float value; the FC immediately recalculates actual P/I/D gains (equivalent to moving a slider in Configurator). Provide only the fields to change; all others keep current values. Automatically enables simplified tuning if disabled. Call `cli_save` to persist. Example: `set_pid_sliders({ master: 1.2, i_gain: 0.1, feedforward: 0 })`
+- `set_pid_sliders` — set one or more sliders by float value; the FC immediately recalculates actual P/I/D gains (equivalent to moving a slider in Configurator). Provide only the fields to change; all others keep current values. Automatically enables simplified tuning if disabled. Call `cli_save` to persist. Targets the **active PID profile only** (use `set_pid_profile` to switch profiles first). Example: `set_pid_sliders({ master: 1.2, i_gain: 0.1, feedforward: 0 })`
 
 ### Variable Tools (760+ available)
 Each CLI variable has dedicated `get_<varname>` and `set_<varname>` tools, e.g.:

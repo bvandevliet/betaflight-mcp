@@ -280,7 +280,11 @@ Also see:
 
 ### Simplified Tuning Sliders
 
-When simplified tuning is active, these intermediate values drive the actual PID/filter gains. Use `simplified_tuning apply` in CLI to compute and write the raw values. `simplified_tuning disable` zeroes the simplified system and leaves the raw values in place for manual editing.
+When simplified tuning is active, these intermediate values drive the actual PID/filter gains.
+
+**CLI workflow**: `set simplified_* = value` (one or more variables) → `simplified_tuning apply` → `save`. Setting variables without running `apply` leaves PID and filter gains stale — the FC does not auto-recalculate on boot, and Configurator's validation (MSP 145) will detect the mismatch and disable the slider UI with a warning.
+
+`simplified_tuning apply` recalculates PIDs **and** gyro/D-term filter Hz values for **all PID profiles**. `simplified_tuning disable` zeroes the simplified system and leaves the raw values in place for manual editing.
 
 | Variable                             | Default | Range                  | Description                                                                                                                    |
 | ------------------------------------ | ------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
@@ -439,6 +443,8 @@ Also see:
 ### RPM Filter (Bidirectional DSHOT)
 
 Requires bidirectional DSHOT (`dshot_bidir = ON`) and ESC firmware that supports it (BLHeli_32, AM32, BlueJay). Motor noise typically starts around 100 Hz and increases with throttle. Harmonics occur at 2× and 3× the fundamental.
+
+**Frequency formula**: `notch_Hz = mechanical_RPM × (motor_poles / 2) / 60`. Example: 14-pole motor at 20,000 RPM → 20000 × 7 / 60 ≈ **2333 Hz** fundamental. This is the frequency the RPM notch tracks. Cross-check `dshot_telemetry_info` RPM readings against notch positions in Configurator's filter tab to verify. Wrong `motor_poles` shifts all notches by the pole-count ratio — e.g. using 12 instead of 14 shifts notches 14% low, leaving motor noise unfiltered.
 
 | Variable                   | Default     | Range / Values         | Description                                                                                                                                                                                                        |
 | -------------------------- | ----------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
