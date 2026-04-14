@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // check-cli-duplicates.mjs
-// Finds duplicate CLI variable names in development-cli-reference.md.
+// Finds duplicate CLI variable names in wiki-cli-reference.md.
 // Usage: node scripts/check-cli-duplicates.mjs
 
 import { readFileSync } from 'fs';
@@ -8,7 +8,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const refPath = join(__dirname, '../plugin/skills/betaflight-pid-tuning/references/betaflight-docs/general/development-cli-reference.md');
+const refPath = join(__dirname, '../plugin/skills/betaflight-pid-tuning/references/betaflight-docs/wiki/cli-reference.md');
 const ref = readFileSync(refPath, 'utf8');
 const lines = ref.split('\n');
 
