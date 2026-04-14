@@ -6,7 +6,7 @@
  *
  * Sources:
  *  - parameter_names.h        — resolves PARAM_NAME_* macros → CLI string names (fetched)
- *  - settings.c               — authoritative variable list (~750 vars), types, ranges (fetched)
+ *  - settings.c               — authoritative variable list, types, ranges (fetched)
  *  - wiki-cli-reference.md — descriptions and defaults (read from local plugin skill files)
  *
  * Run: pnpm generate
@@ -17,6 +17,41 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+
+// Sections of cli-reference.md whose variables are included in code generation.
+// All other sections (OSD, VTX, LED, Telemetry, etc.) are excluded to keep the
+// tool set focused on flight-tuning-relevant parameters.
+const INCLUDED_SECTIONS = new Set([
+  // 'Key CLI Commands' — intentionally excluded: contains command invocations
+  // (save, diff, dump, status, etc.), not settable variables. All relevant
+  // commands are already implemented as dedicated MCP tools in cli.ts,
+  // commands.ts, and system.ts. Gaps: dshot_telemetry_info, rc_smoothing_info
+  // (both reachable via cli_exec if needed).
+  'Gyro & IMU',
+  'Gyro Filters',
+  'Dynamic Notch Filter',
+  'D-term & PID Output Filters',
+  'PID Gains',
+  'Dynamic Damping',
+  'Feed Forward',
+  'Simplified Tuning Sliders',
+  'TPA (Throttle PID Attenuation)',
+  'Rates',
+  'Angle & Horizon Mode',
+  'Motor & ESC',
+  'RPM Filter (Bidirectional DSHOT)',
+  'Dynamic Idle',
+  'RC Input & Smoothing',
+  'Battery & Current Sensing',
+  'Blackbox',
+  'Failsafe',
+  'GPS Rescue',
+  'GPS Settings',
+  'System & Debug',
+  'Board & Hardware',
+  'EZ Landing',
+  'SPA \u2014 Setpoint Process Attenuation',
+]);
 
 const LOCAL_CLI_REF_PATH = join(
   __dirname,
@@ -280,6 +315,39 @@ function parseLocalCliRef(text: string): Map<string, CliMdEntry> {
 }
 
 // ---------------------------------------------------------------------------
+// Step 5b — Collect allowed variable names from included sections
+// ---------------------------------------------------------------------------
+
+function parseAllowedVarNames(text: string): Set<string> {
+  const allowed = new Set<string>();
+  let inAllowedSection = false;
+
+  for (const line of text.split('\n')) {
+    // ### heading — enter or exit an allowed section
+    const h3Match = /^###\s+(.+)$/.exec(line);
+    if (h3Match?.[1] !== undefined) {
+      inAllowedSection = INCLUDED_SECTIONS.has(h3Match[1].trim());
+      continue;
+    }
+    // ## heading — always exit (higher level resets section context)
+    if (/^##\s/.test(line)) {
+      inAllowedSection = false;
+      continue;
+    }
+
+    if (!inAllowedSection) continue;
+
+    // Match table rows: | `varname` | ... (lowercase CLI variable names only)
+    const varMatch = /^\|\s*`([a-z][a-z0-9_]+)`\s*\|/.exec(line);
+    if (varMatch?.[1] !== undefined) {
+      allowed.add(varMatch[1]);
+    }
+  }
+
+  return allowed;
+}
+
+// ---------------------------------------------------------------------------
 // Step 6 — Build VarEntry list from C entries (with Cli.md enrichment)
 // ---------------------------------------------------------------------------
 
@@ -290,11 +358,16 @@ const SCOPE_LABELS: Record<string, string> = {
   RATE_PROFILE: 'Rate Profile',
 };
 
-function buildVarEntries(cEntries: CEntry[], cliMd: Map<string, CliMdEntry>): VarEntry[] {
+function buildVarEntries(
+  cEntries: CEntry[],
+  cliMd: Map<string, CliMdEntry>,
+  allowedNames: Set<string>,
+): VarEntry[] {
   const seen = new Set<string>();
   const entries: VarEntry[] = [];
 
   for (const cEntry of cEntries) {
+    if (!allowedNames.has(cEntry.name)) continue;
     if (seen.has(cEntry.name)) continue;
     seen.add(cEntry.name);
 
@@ -407,6 +480,9 @@ async function main(): Promise<void> {
   const cliMd = parseLocalCliRef(localRefText);
   process.stderr.write(`[generate] Parsed ${cliMd.size} local CLI reference entries\n`);
 
+  const allowedVarNames = parseAllowedVarNames(localRefText);
+  process.stderr.write(`[generate] Allowing ${allowedVarNames.size} variables from ${INCLUDED_SECTIONS.size} included sections\n`);
+
   if (rawCEntries.length === 0) {
     process.stderr.write(
       '[generate] ERROR: No variables parsed from settings.c — firmware source is the required source of truth.\n' +
@@ -415,7 +491,7 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  const entries = buildVarEntries(rawCEntries, cliMd);
+  const entries = buildVarEntries(rawCEntries, cliMd, allowedVarNames);
   process.stderr.write(`[generate] Found ${entries.length} variables\n`);
 
   // ---------------------------------------------------------------------------
