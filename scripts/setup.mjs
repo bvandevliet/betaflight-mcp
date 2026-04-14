@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 // setup.mjs
-// Configures the betaflight-mcp MCP server path in the Claude Code plugin cache.
+// Configures the betaflight-mcp MCP server path in the Claude Code plugin.
+// Patches both the live plugin/.mcp.json (used by directory-registered plugins
+// in Claude Code ≥ 2.1.107) and the plugin cache (used by older versions).
 // Usage: node scripts/setup.mjs [path-to-repo]
 //        pnpm setup
 
@@ -24,7 +26,21 @@ if (!existsSync(serverPath.replace(/\//g, '\\'))) {
 
 console.log(`Server path: ${serverPath}`);
 
-// --- Find cached .mcp.json ---
+// --- Always patch the live plugin/.mcp.json first (Claude Code ≥ 2.1.107 uses this directly) ---
+const liveMcpJson = join(repoRoot, 'plugin', '.mcp.json');
+if (existsSync(liveMcpJson)) {
+  const liveContent = readFileSync(liveMcpJson, 'utf8');
+  if (liveContent.includes(PLACEHOLDER)) {
+    writeFileSync(liveMcpJson, liveContent.replaceAll(PLACEHOLDER, serverPath), 'utf8');
+    console.log(`Updated live plugin/.mcp.json: ${liveMcpJson}`);
+  } else {
+    console.log(`Live plugin/.mcp.json already configured: ${liveMcpJson}`);
+  }
+} else {
+  console.warn(`WARNING: plugin/.mcp.json not found at ${liveMcpJson}`);
+}
+
+// --- Also patch the plugin cache (Claude Code < 2.1.107 used this) ---
 const cacheRoot = join(homedir(), '.claude', 'plugins', 'cache');
 
 if (!existsSync(cacheRoot)) {
@@ -56,20 +72,19 @@ const candidates = findMcpJsonFiles(cacheRoot)
 
 let target;
 if (candidates.length === 0) {
-  // Placeholder already replaced or plugin not installed
+  // Placeholder already replaced or plugin not installed in cache
   const allMcpJson = findMcpJsonFiles(cacheRoot)
     .filter(f => f.replace(/\\/g, '/').includes('betaflight'));
   if (allMcpJson.length > 0) {
-    target = allMcpJson[0];
-    const current = readFileSync(target, 'utf8');
-    console.log(`Placeholder already replaced in: ${target}`);
-    console.log(`Current content:\n${current}`);
-    console.log('\nTo reconfigure, manually restore the placeholder or reinstall the plugin.');
-    process.exit(0);
+    console.log(`Cache placeholder already replaced in: ${allMcpJson[0]}`);
+  } else {
+    console.log('NOTE: No betaflight .mcp.json found in plugin cache (plugin may not be cache-installed).');
   }
-  console.error(`ERROR: No cached .mcp.json containing "${PLACEHOLDER}" found in ${cacheRoot}`);
-  console.error('Install the plugin first: /plugin install betaflight-mcp');
-  process.exit(1);
+  // Live file was already handled above; nothing more to do for cache.
+  console.log('');
+  console.log('Restart Claude Code for the MCP server to take effect.');
+  console.log('Then say: "Connect to my FPV quad"');
+  process.exit(0);
 } else if (candidates.length === 1) {
   target = candidates[0];
 } else {
