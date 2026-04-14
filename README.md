@@ -10,7 +10,7 @@ An MCP (Model Context Protocol) server that exposes Betaflight flight controller
 
 - Real-time sensor reads — attitude, IMU, GPS, RC channels, motors, battery
 - Full CLI access — feature flags, variable get/set, dump/diff, save, defaults
-- Auto-generated variable tools: ~750 CLI-configurable variables each exposed as a `get_<name>` / `set_<name>` tool pair, derived from the Betaflight firmware source
+- Auto-generated variable tools: ~375 CLI-configurable variables each exposed as a `get_<name>` / `set_<name>` tool pair, derived from the Betaflight firmware source
 - Expert PID tuning skill — automatically activates in Claude Code when tuning topics come up
 
 ## Claude Code Plugin
@@ -67,7 +67,7 @@ pnpm whitelist-reads
 
 ## CLI commands and variables as MCP tools
 
-All CLI-configurable variables are exposed as individual `get_<name>` / `set_<name>` tool pairs, auto-generated from the Betaflight firmware source (`settings.c`, ~750 variables), enriched with descriptions from the CLI reference docs.
+Relevant CLI-configurable variables are exposed as individual `get_<name>` / `set_<name>` tool pairs, auto-generated from the Betaflight firmware source (`settings.c`, ~375 variables), enriched with descriptions from the CLI reference docs.
 
 Run `pnpm generate` to regenerate `src/generated/variables.ts` after a Betaflight release.
 
