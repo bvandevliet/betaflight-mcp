@@ -7,7 +7,7 @@
  * Sources:
  *  - parameter_names.h        — resolves PARAM_NAME_* macros → CLI string names (fetched)
  *  - settings.c               — authoritative variable list (~750 vars), types, ranges (fetched)
- *  - development-cli-reference.md — descriptions and defaults (read from local plugin skill files)
+ *  - wiki-cli-reference.md — descriptions and defaults (read from local plugin skill files)
  *
  * Run: pnpm generate
  */
@@ -20,7 +20,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const LOCAL_CLI_REF_PATH = join(
   __dirname,
-  '../plugin/skills/betaflight-pid-tuning/references/betaflight-docs/general/development-cli-reference.md'
+  '../plugin/skills/betaflight-pid-tuning/references/betaflight-docs/wiki/cli-reference.md'
 );
 
 const PARAM_NAMES_URL =

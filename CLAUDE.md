@@ -57,11 +57,13 @@ Session
 
 ### Tool registration (`src/tools/`, `src/generated/`)
 
-Each `tools/*.ts` file exports a `register*Tools(server: McpServer)` function. `src/server.ts` calls them all at startup. All tools call `requireSession()` and wrap errors in a `{ content: [{ type: 'text', text: ... }] }` response rather than throwing, so MCP clients see clean error messages.
+Each `tools/*.ts` file exports a `register*Tools(server: McpServer)` function. `src/server.ts` calls them all at startup. All tools call `requireSession()` and wrap errors in a `{ content: [{ type: 'text', text: ... }] }` response rather than throwing, so MCP clients see clean error messages. Connection tools (`list_serial_ports`, `connect_flight_controller`, `reconnect_flight_controller`, `disconnect_flight_controller`) live in `src/tools/connection.ts`.
 
 **Buffer reads in `realtime.ts`**: all use local helper functions (`readU8`, `readU16LE`, `readI16LE`, `readU32LE`, `readI32LE`) that check for `undefined` before returning, satisfying `noUncheckedIndexedAccess`.
 
 `src/tools/sliders.ts` — `get_pid_sliders` / `set_pid_sliders` tools. Uses MSP 140 to read and MSP 142 to apply slider changes.
+
+`src/tools/system.ts` — system management tools: `reboot_flight_controller`, `calibrate_accelerometer`, `calibrate_magnetometer`, `get_dataflash_summary`, `erase_blackbox_logs`, `get_arming_disable_flags`, `get_current_profile`, `set_pid_profile`, `set_rate_profile`, `copy_pid_profile`, `preflight_check`.
 
 ### Simplified tuning MSP protocol (`src/tools/sliders.ts`)
 
