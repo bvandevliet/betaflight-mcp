@@ -89,25 +89,6 @@ function parseResponse(buf: Buffer): RawSliders {
   };
 }
 
-// Encodes the 17-byte PID slider section sent as the payload for
-// MSP_CALCULATE_SIMPLIFIED_PID (142). Mirrors MSPHelper.writePidSliderSettings().
-function encodePidSection(s: RawSliders): Buffer {
-  const buf = Buffer.alloc(17);
-  let o = 0;
-  buf.writeUInt8(s.pids_mode, o++);
-  buf.writeUInt8(s.master_multiplier, o++);
-  buf.writeUInt8(s.roll_pitch_ratio, o++);
-  buf.writeUInt8(s.i_gain, o++);
-  buf.writeUInt8(s.d_gain, o++);
-  buf.writeUInt8(s.pi_gain, o++);
-  buf.writeUInt8(s.dmax_gain, o++);
-  buf.writeUInt8(s.feedforward_gain, o++);
-  buf.writeUInt8(s.pitch_pi_gain, o++);
-  buf.writeUInt32LE(0, o); o += 4; // reserved
-  buf.writeUInt32LE(0, o);         // reserved
-  return buf;
-}
-
 // Encodes the full 53-byte payload for MSP_SET_SIMPLIFIED_TUNING (141).
 // Mirrors MSPHelper.crunchSimplifiedTuning() — all three sections must be
 // present so the FC writes the simplified_* variables into pgCopy (working
@@ -116,7 +97,7 @@ function encodeFullPayload(s: RawSliders): Buffer {
   const buf = Buffer.alloc(53);
   let o = 0;
 
-  // PID section (17 bytes) — same layout as encodePidSection
+  // PID section (17 bytes): 9 × uint8 + 2 × uint32 reserved
   buf.writeUInt8(s.pids_mode, o++);
   buf.writeUInt8(s.master_multiplier, o++);
   buf.writeUInt8(s.roll_pitch_ratio, o++);
@@ -278,12 +259,12 @@ export function registerSliderTools(server: McpServer): void {
           .describe('Pitch PI gain (0.0–2.0). Additional pitch-axis PI adjustment for roll/pitch latency matching.'),
         gyro_filter: z.boolean().optional()
           .describe('Enable simplified gyro filter slider. When true, the gyro_filter_multiplier controls gyro LPF cutoffs.'),
-        gyro_filter_multiplier: z.number().min(0).max(2).optional()
-          .describe('Gyro filter multiplier (0.0–2.0). Scales gyro lowpass cutoff frequencies. 1.0 = default.'),
+        gyro_filter_multiplier: z.number().min(0.1).max(2).optional()
+          .describe('Gyro filter multiplier (0.1–2.0). Scales gyro lowpass cutoff frequencies. 1.0 = default. Firmware minimum is 0.1 (raw 10).'),
         dterm_filter: z.boolean().optional()
           .describe('Enable simplified D-term filter slider. When true, the dterm_filter_multiplier controls D-term LPF cutoffs.'),
-        dterm_filter_multiplier: z.number().min(0).max(2).optional()
-          .describe('D-term filter multiplier (0.0–2.0). Scales D-term lowpass cutoff frequencies. 1.0 = default.'),
+        dterm_filter_multiplier: z.number().min(0.1).max(2).optional()
+          .describe('D-term filter multiplier (0.1–2.0). Scales D-term lowpass cutoff frequencies. 1.0 = default. Firmware minimum is 0.1 (raw 10).'),
       },
     },
     async (args) => {
@@ -298,7 +279,7 @@ export function registerSliderTools(server: McpServer): void {
           const buf = await session.mspClient.request(MspCodes.MSP_GET_SIMPLIFIED_TUNING);
           const current = parseResponse(buf);
 
-          // 2. Build updated state: copy current, apply caller's changes.
+          // 2b. Build updated state: copy current, apply caller's changes.
           const updated: RawSliders = { ...current };
 
           // Enable simplified tuning if it was off and the caller did not specify a mode.
@@ -319,11 +300,7 @@ export function registerSliderTools(server: McpServer): void {
           if (args.dterm_filter     !== undefined) updated.dterm_filter       = args.dterm_filter ? 1 : 0;
           if (args.dterm_filter_multiplier !== undefined) updated.dterm_filter_multiplier = Math.round(args.dterm_filter_multiplier * 100);
 
-          // 3. Compute PIDs in RAM via MSP 142. The FC computes actual p/i/d gains
-          //    but does NOT write the simplified_* variables into pgCopy.
-          await session.mspClient.request(MspCodes.MSP_CALCULATE_SIMPLIFIED_PID, encodePidSection(updated));
-
-          // 4. Compute gyro filter Hz values via MSP 143 — only when gyro filter sliders changed
+          // 3. Optionally recompute gyro filter Hz values via MSP 143 — only when gyro filter sliders changed
           //    AND the FC has at least one gyro LPF active (non-zero Hz). Configurator mirrors this
           //    check: it disables the gyro slider when all Hz values are 0 (filters fully disabled).
           //    Sending MSP 143 when Hz values are all zero causes the FC to not respond (→ timeout).
@@ -345,7 +322,7 @@ export function registerSliderTools(server: McpServer): void {
             updated.gyro_lowpass_dyn_max_hz = gyroComputed.lowpass_dyn_max_hz;
           }
 
-          // 5. Compute D-term filter Hz values via MSP 144 — same guard as gyro.
+          // 4. Compute D-term filter Hz values via MSP 144 — same guard as gyro.
           const dtermFilterActive =
             updated.dterm_lowpass_hz !== 0 ||
             updated.dterm_lowpass2_hz !== 0 ||
@@ -364,10 +341,11 @@ export function registerSliderTools(server: McpServer): void {
             updated.dterm_lowpass_dyn_max_hz = dtermComputed.lowpass_dyn_max_hz;
           }
 
-          // 6. Write simplified_* variables into pgCopy (the FC's working config).
-          //    MSP 141 with the full 53-byte payload mirrors Configurator's crunchSimplifiedTuning()
-          //    save flow — without this step, cli_save persists the computed p/i/d values but
-          //    simplified_* stays at whatever was in EEPROM, so sliders revert on reboot.
+          // 5. Write simplified_* into pgCopy and recompute all gains via MSP 141.
+          //    The FC reads the full 53-byte payload (simplified_* control vars + filter Hz),
+          //    then calls applySimplifiedTuning() internally — computing PID gains, gyro filter
+          //    Hz, and dterm filter Hz in one step. Without this, cli_save would persist the
+          //    computed p/i/d values but simplified_* would revert to EEPROM defaults on reboot.
           await session.mspClient.request(MspCodes.MSP_SET_SIMPLIFIED_TUNING, encodeFullPayload(updated));
 
           return textResult(

@@ -1,6 +1,6 @@
 #!/usr/bin/env tsx
 /**
- * Audit script: compares CLI variables in the local development-cli-reference.md
+ * Audit script: compares CLI variables in the local wiki-cli-reference.md
  * against the authoritative upstream firmware source (settings.c + parameter_names.h).
  *
  * Outputs:
@@ -19,7 +19,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const LOCAL_CLI_REF_PATH = join(
   __dirname,
-  '../plugin/skills/betaflight-pid-tuning/references/betaflight-docs/general/development-cli-reference.md'
+  '../plugin/skills/betaflight-pid-tuning/references/betaflight-docs/wiki/cli-reference.md'
 );
 
 // Use a specific release tag to match the documented firmware version.

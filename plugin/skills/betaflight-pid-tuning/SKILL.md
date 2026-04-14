@@ -1,7 +1,7 @@
 ---
 name: betaflight-pid-tuning
 description: >
-  Expert Betaflight FPV quad tuning assistant. Combines the PIDtoolbox "basement tuning" methodology with Chris Rosser's scientifically grounded filter and PID theory, backed by a full set of official Betaflight documentation. Has direct access to the Betaflight MCP server for real-time sensor reads, CLI command execution, and live FC configuration.
+  Expert Betaflight FPV drone tuning assistant. Combines the PIDtoolbox "basement tuning" methodology with Chris Rosser's scientifically grounded filter and PID theory, backed by a full set of official Betaflight documentation. Has direct access to the Betaflight MCP server for real-time sensor reads, CLI command execution, and live FC configuration.
 
   Use this skill proactively whenever the user mentions: Betaflight, FPV drone, FPV quad, PID tuning, filter tuning, blackbox analysis, propwash, oscillations, motor heat, motor noise, gyro noise, RPM filtering, feed forward, dynamic damping, D-term, I-term windup, anti-gravity, TPA, dynamic idle, Betaflight CLI variables, ESC configuration, rates tuning, freestyle tuning, or any request to connect to, read from, or configure a flight controller, (FPV) drone or (FPV) quad. Also trigger for questions about Betaflight CLI commands or variables even if no tuning is involved.
   
@@ -22,17 +22,16 @@ Read these files when the topic comes up. They are in `references/` relative to 
 
 | Topic | File |
 |-------|------|
-| **CLI variable reference (complete — all variables with descriptions, defaults, ranges)** | `references/betaflight-docs/general/development-cli-reference.md` |
-| PID theory fundamentals | `references/betaflight-docs/general/development-pid-tuning.md` |
+| **CLI variable reference (complete — all variables with descriptions, defaults, ranges)** | `references/betaflight-docs/wiki/cli-reference.md` |
 | BF 4.3 tuning notes (slider system) | `references/betaflight-docs/tuning-notes/betaflight-4.3-tuning-notes.md` |
 | BF 4.2 / 4.1 / 4.0 tuning notes | `references/betaflight-docs/tuning-notes/betaflight-4.2-tuning-notes.md` (and siblings) |
-| **RPM/DSHOT filtering — feature-specific CLI vars** | `references/betaflight-docs/guides/guides-dshot-rpm-filtering.md` |
-| **Dynamic idle — feature-specific CLI vars** | `references/betaflight-docs/guides/guides-dynamic-idle.md` |
-| **I-term relax — feature-specific CLI vars** | `references/betaflight-docs/guides/guides-i-term-relax-explained.md` |
-| **Feed Forward 2.0 — feature-specific CLI vars** | `references/betaflight-docs/guides/guides-feed-forward-2.0.md` |
-| **D-min / dynamic damping — feature-specific CLI vars** | `references/betaflight-docs/guides/guides-dmin.md` |
-| Freestyle tuning principles | `references/betaflight-docs/guides/guides-freestyle-tuning-principles.md` |
-| PID tuning guide (community) | `references/betaflight-docs/guides/guides-pid-tuning-guide.md` |
+| **RPM/DSHOT filtering — feature-specific theory and fundamentals** | `references/betaflight-docs/wiki/dshot-rpm-filtering.md` |
+| **Dynamic idle — feature-specific theory and fundamentals** | `references/betaflight-docs/wiki/dynamic-idle.md` |
+| **I-term relax — feature-specific theory and fundamentals** | `references/betaflight-docs/wiki/i-term-relax-explained.md` |
+| **Feed Forward 2.0 — feature-specific theory and fundamentals** | `references/betaflight-docs/wiki/feed-forward-2.0.md` |
+| **Dynamic D / dynamic damping — feature-specific theory and fundamentals** | `references/betaflight-docs/wiki/dynamic-d.md` |
+| Freestyle tuning principles | `references/betaflight-docs/wiki/freestyle-tuning-principles.md` |
+| PID tuning guide, theory and fundamentals (BF community) | `references/betaflight-docs/wiki/pid-tuning-guide.md` |
 | Chris Rosser — BF 4.5 filter tuning | `references/youtube-transcript-summaries/chris-rosser-bf4.5-filter-tuning.md` |
 | Chris Rosser — BF 4.5 PID tuning | `references/youtube-transcript-summaries/chris-rosser-bf4.5-pid-tuning.md` |
 | Chris Rosser — BF 4.4 guide | `references/youtube-transcript-summaries/chris-rosser-bf4.4-tuning-guide.md` |
@@ -42,12 +41,11 @@ Read these files when the topic comes up. They are in `references/` relative to 
 | PIDtoolbox — BF 4.5 rapid tune | `references/youtube-transcript-summaries/pidtoolbox-bf4.5-pid-tuning-2.md` |
 | Release notes 4.4 / 4.5 / 2025.12 | `references/betaflight-docs/release-notes/` (three files) |
 | **Configurator PID tab (sliders, filters, UI↔CLI reference)** | `references/betaflight-docs/configurator-app/app-pid-tuning-tab.mdx` |
-| **Failsafe — configuration guide** | `references/betaflight-docs/guides/guides-failsafe.md` |
-| **GPS Rescue — 4.5 (most current)** | `references/betaflight-docs/guides/guides-gps-rescue-v4.5.md` |
-| GPS Rescue — 4.4 | `references/betaflight-docs/guides/guides-gps-rescue-v4.4.md` |
-| GPS Rescue — 4.1 to 4.3 | `references/betaflight-docs/guides/guides-gps-rescue-mode-v4.1-to-v4.3.md` |
+| **Failsafe — configuration guide** | `references/betaflight-docs/wiki/failsafe.md` |
+| **GPS Rescue — 4.4 and later (most current)** | `references/betaflight-docs/wiki/gps-rescue.md` |
+| GPS Rescue — 4.1 to 4.3 | `references/betaflight-docs/wiki/gps-rescue-mode-v4.1-to-v4.3.md` |
 
-**When SKILL.md inline content is sufficient** (common tuning workflow, the 8-phase sequence, dynamic idle table, I-term relax cutoff table, symptom guide, key variable names) — trust it and skip loading reference files. Load references when: (a) the user asks about a specific variable or behaviour not covered inline, (b) you need to verify an exact range or default, or (c) the user's question requires feature-specific depth beyond the inline summary. For variable lookups, `development-cli-reference.md` is the single complete source of truth — load it directly. Load raw CLI dumps only when you need exact numeric defaults for a specific firmware version. Load the feature guides alongside the CLI reference when deep feature context is needed.
+**When SKILL.md inline content is sufficient** (common tuning workflow, the 8-phase sequence, dynamic idle table, I-term relax cutoff table, symptom guide, key variable names) — trust it and skip loading reference files. Load references when: (a) the user asks about a specific variable or behaviour not covered inline, (b) you need to verify an exact range or default, or (c) the user's question requires feature-specific depth beyond the inline summary. For variable lookups, `wiki-cli-reference.md` is the single complete source of truth — load it directly. Load raw CLI dumps only when you need exact numeric defaults for a specific firmware version. Load the feature guides alongside the CLI reference when deep feature context is needed.
 
 ---
 
@@ -58,6 +56,7 @@ The MCP server runs alongside this session and exposes these tools:
 ### Connection
 - `list_serial_ports` — find available ports (run first if port is unknown)
 - `connect_flight_controller` — connect by port (e.g. `COM3`, `/dev/ttyUSB0`) and optional baud rate (default 115200)
+- `reconnect_flight_controller` — reconnect on the same port/baud after `cli_save` reboots the FC
 - `disconnect_flight_controller` — close the connection
 
 ### Realtime Sensors
@@ -85,9 +84,22 @@ The MCP server runs alongside this session and exposes these tools:
 - `get_mixer`, `get_serial_config`, `get_aux_config`, `get_channel_map`
 - `motor_get` / `motor_set` — read/drive motors (armed state)
 
+### System Management
+- `get_current_profile` — read active PID profile index and rate profile index
+- `set_pid_profile` — switch active PID profile (0–2); does not save — call `cli_save` if you want to persist
+- `set_rate_profile` — switch active rate profile (0–2)
+- `copy_pid_profile` — copy one PID profile to another (useful for A/B testing)
+- `get_arming_disable_flags` — read all flags preventing arming (essential for troubleshooting "won't arm")
+- `preflight_check` — run arming readiness check and return a structured status summary
+- `reboot_flight_controller` — reboot the FC without saving (triggers reconnect)
+- `calibrate_accelerometer` — calibrate acc (FC must be level and stationary)
+- `calibrate_magnetometer` — calibrate compass if equipped
+- `get_dataflash_summary` — read blackbox flash usage (sectors used, free, total)
+- `erase_blackbox_logs` — erase all blackbox data from onboard flash
+
 ### Simplified Filter and Tuning Sliders
 - `get_pid_sliders` — read current slider values as floats (1.0 = default/100%). Returns `master`, `roll_pitch_ratio`, `i_gain`, `d_gain`, `pi_gain`, `dmax_gain`, `feedforward`, `pitch_pi`, `pids_mode`, `gyro_filter_multiplier` and `dterm_filter_multiplier`.
-- `set_pid_sliders` — set one or more sliders by float value; the FC immediately recalculates actual P/I/D gains (equivalent to moving a slider in Configurator). Provide only the fields to change; all others keep current values. Automatically enables simplified tuning if disabled. Call `cli_save` to persist. Example: `set_pid_sliders({ master: 1.2, i_gain: 0.1, feedforward: 0 })`
+- `set_pid_sliders` — set one or more sliders by float value; the FC immediately recalculates actual P/I/D gains (equivalent to moving a slider in Configurator). Provide only the fields to change; all others keep current values. Automatically enables simplified tuning if disabled. Call `cli_save` to persist. Targets the **active PID profile only** (use `set_pid_profile` to switch profiles first). Example: `set_pid_sliders({ master: 1.2, i_gain: 0.1, feedforward: 0 })`
 
 ### Variable Tools (760+ available)
 Each CLI variable has dedicated `get_<varname>` and `set_<varname>` tools, e.g.:
@@ -590,7 +602,7 @@ Configure a mode switch in Configurator's Modes tab. `failsafe_switch_mode` cont
 | `failsafe_stick_threshold` | 30 | Degrees of stick deflection needed to recover from GPS Rescue |
 | `failsafe_switch_mode` | `STAGE1` | `STAGE1`, `STAGE2`, or `KILL` |
 
-Load `references/betaflight-docs/guides/guides-failsafe.md` for full detail on bench testing procedure and stage-by-stage configuration.
+Load `references/betaflight-docs/wiki/failsafe.md` for full detail on bench testing procedure and stage-by-stage configuration.
 
 ---
 
@@ -664,15 +676,14 @@ Enable `gps_rescue_sanity_checks = RESCUE_SANITY_ON` whenever GPS Rescue is set 
 5. Test at progressively larger distances before relying on it as a failsafe.
 
 Load version-specific reference files for full parameter tables and version-specific behavior:
-- `references/betaflight-docs/guides/guides-gps-rescue-v4.5.md` (4.5 — most current)
-- `references/betaflight-docs/guides/guides-gps-rescue-v4.4.md` (4.4)
-- `references/betaflight-docs/guides/guides-gps-rescue-mode-v4.1-to-v4.3.md` (4.1–4.3)
+- `references/betaflight-docs/wiki/gps-rescue.md` (4.4 and later — most current)
+- `references/betaflight-docs/wiki/gps-rescue-mode-v4.1-to-v4.3.md` (4.1–4.3)
 
 ---
 
 ## Key CLI Variables Quick Reference
 
-For full documentation, read `references/betaflight-docs/general/development-cli-reference.md`. Most-used during tuning:
+For full documentation, read `references/betaflight-docs/wiki/cli-reference.md`. Most-used during tuning:
 
 **Filters:** `gyro_lpf1_static_hz`, `gyro_lpf2_static_hz`, `rpm_filter_q`, `rpm_filter_weights`, `rpm_filter_min_hz`, `rpm_filter_fade_range_hz`, `dyn_notch_count`, `dyn_notch_min_hz`, `dyn_notch_max_hz`, `dyn_notch_q`, `dterm_lpf1_type`, `dterm_lpf1_dyn_min_hz`, `dterm_lpf1_dyn_max_hz`, `dterm_lpf1_dyn_expo`, `yaw_lowpass_hz`
 
