@@ -31,11 +31,9 @@ pnpm build
 **2. Add the local marketplace**:
 
 ```bash
-claude plugin marketplace add /path/to/betaflight-mcp
+claude plugin marketplace add $(pwd)
 claude plugin install betaflight-mcp@betaflight-mcp
 ```
-
-Replace `/path/to/betaflight-mcp` with the absolute path to your cloned repository (the repo root, not the `plugin/` subdirectory).
 
 **3. Configure the server path and whitelist read tools** — run the setup script:
 
