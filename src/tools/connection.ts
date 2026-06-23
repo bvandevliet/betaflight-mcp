@@ -82,6 +82,15 @@ export function registerConnectionTools(server: McpServer): void {
       }
       const existing = getSession();
       if (existing) {
+        // Best-effort: leave CLI mode before closing. CLI mode is firmware-side state —
+        // closing the local serial port does NOT reset it, so a session that used cli_exec
+        // without a clean "exit" would otherwise leave the FC stuck ignoring MSP requests
+        // on the next connection, until a full power cycle.
+        try {
+          await existing.cliClient.exitCli();
+        } catch {
+          // ignore — FC may already be rebooting or unresponsive
+        }
         destroySession();
         try {
           await existing.transport.close();
@@ -124,6 +133,12 @@ export function registerConnectionTools(server: McpServer): void {
         return { content: [{ type: 'text' as const, text: 'No flight controller connected.' }] };
       }
       try {
+        // Best-effort: leave CLI mode before closing — see comment in reconnect_flight_controller.
+        try {
+          await session.cliClient.exitCli();
+        } catch {
+          // ignore — FC may already be rebooting or unresponsive
+        }
         destroySession();
         await session.transport.close();
         return { content: [{ type: 'text' as const, text: 'Disconnected from flight controller.' }] };

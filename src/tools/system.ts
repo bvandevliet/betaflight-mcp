@@ -3,15 +3,7 @@ import { z } from 'zod';
 import { MspCodes } from '../msp/codes.js';
 import { requireSession } from '../state.js';
 import type { FcStatusEx, FcDataflashSummary, FcBatteryState, FcGpsData } from '../types/betaflight.js';
-
-// Arming disable flag names ordered by bit position (Betaflight 4.x)
-const ARMING_DISABLE_FLAGS = [
-  'NOGYRO', 'FAILSAFE', 'RX_FAILSAFE', 'BAD_RX_RECOVERY', 'BOXFAILSAFE',
-  'RUNAWAY_TAKEOFF', 'CRASH_DETECTED', 'THROTTLE', 'ANGLE', 'BOOT_GRACE_TIME',
-  'NOPREARM', 'LOAD', 'CALIB', 'CLI', 'CMS_MENU', 'OSD_MENU', 'BST', 'MSP',
-  'PARALYZE', 'GPS', 'RESC', 'RPMFILTER', 'REBOOT_REQUIRED', 'DSHOT_BITBANG',
-  'ACC_CALIBRATION', 'MOTOR_PROTOCOL', 'ARM_SWITCH',
-] as const;
+import { ARMING_DISABLE_FLAGS } from '../generated/armingFlags.js';
 
 function readU8(buf: Buffer, offset: number): number {
   const b = buf[offset];

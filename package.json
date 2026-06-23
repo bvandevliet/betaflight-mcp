@@ -8,7 +8,7 @@
     "betaflight-mcp": "dist/server.js"
   },
   "scripts": {
-    "generate": "tsx scripts/generate-variables.ts",
+    "generate": "tsx scripts/generate-variables.ts && tsx scripts/generate-arming-flags.ts",
     "prebuild": "pnpm run generate",
     "build": "tsc",
     "build:watch": "tsc --watch",

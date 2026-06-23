@@ -5,6 +5,12 @@ const CLI_ENTER_TIMEOUT_MS = 5000;
 const CLI_CMD_TIMEOUT_MS = 10000;
 const CLI_DUMP_TIMEOUT_MS = 15000;
 
+// CLI commands that reboot the FC or hand off to another mode entirely — none of these
+// produce a trailing "# " prompt, so execCommand() must not wait for one. Dedicated tools
+// (cli_save, cli_defaults, reboot_flight_controller) already use execCommandAndDisconnect()
+// for the common cases; this set guards the generic cli_exec path for the same commands.
+const REBOOTING_COMMANDS = new Set(['reboot', 'save', 'defaults', 'bl', 'msc']);
+
 export type MutexRelease = () => void;
 export type Mutex = () => Promise<MutexRelease>;
 
@@ -101,6 +107,25 @@ export class CliClient {
 
       this.buffer = '';
       await this.transport.write(Buffer.from(`${cmd}\n`));
+
+      // "exit" leaves CLI mode with no new prompt; "reboot"/"save"/"defaults"/"bl"/"msc"
+      // restart or hand off the MCU entirely. None of these ever produce a trailing "# ",
+      // so waitForPrompt() would always time out even on success. Callers should prefer
+      // exitCli() / execCommandAndDisconnect() for these, but cli_exec accepts arbitrary
+      // text, so guard against it here too rather than reporting a false error.
+      const trimmedCmd = cmd.trim().toLowerCase();
+      if (trimmedCmd === 'exit') {
+        await new Promise<void>((r) => setTimeout(r, 300));
+        this.inCli = false;
+        const response = this.buffer.trim();
+        return response || 'Left CLI mode.';
+      }
+      if (REBOOTING_COMMANDS.has(trimmedCmd.split(/\s+/)[0] ?? '')) {
+        await new Promise<void>((r) => setTimeout(r, 500));
+        this.inCli = false;
+        const response = this.buffer.trim();
+        return response || 'Command sent. Flight controller is rebooting.';
+      }
 
       const isDump = cmd.startsWith('dump') || cmd.startsWith('diff');
       const timeoutMs = isDump ? CLI_DUMP_TIMEOUT_MS : CLI_CMD_TIMEOUT_MS;
