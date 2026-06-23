@@ -61,6 +61,11 @@ export class SerialTransport {
   }
 
   write(data: Buffer): Promise<void> {
+    if (!this.port.isOpen) {
+      return Promise.reject(
+        new Error('Serial port is closed (connection was lost). Use connect_flight_controller to reconnect.'),
+      );
+    }
     return new Promise<void>((resolve, reject) => {
       this.port.write(data, (err) => {
         if (err) {

@@ -21,9 +21,14 @@ export function createMutex(): Mutex {
   };
 }
 
+// Minimum idle time (no new data) required before a trailing "# " is trusted as the
+// real end-of-output prompt, rather than a coincidental mid-stream chunk boundary.
+const PROMPT_QUIET_MS = 60;
+
 export class CliClient {
   private inCli = false;
   private buffer = '';
+  private lastDataAt = 0;
   private dataListener: (chunk: Buffer) => void;
 
   constructor(
@@ -32,36 +37,38 @@ export class CliClient {
   ) {
     this.dataListener = (chunk: Buffer) => {
       this.buffer += chunk.toString('latin1');
+      this.lastDataAt = Date.now();
     };
     this.transport.addDataListener(this.dataListener);
   }
 
+  // IMPORTANT: Betaflight dump/diff output is full of comment lines like "# version",
+  // "# master", "# profile 0", etc. A naive `buffer.includes(CLI_PROMPT)` check matches
+  // the FIRST such comment line, resolving long before the real output has finished
+  // streaming in — this is what caused cli_dump/cli_diff to silently truncate.
+  // The real end-of-output prompt is the LAST thing written, with nothing after it.
+  // We require the buffer to *end* with the prompt AND have been quiet (no new data)
+  // for PROMPT_QUIET_MS before trusting it, to avoid false-triggering on a chunk
+  // boundary that happens to land right after a "# " inside a comment line.
   private waitForPrompt(timeoutMs: number): Promise<string> {
     return new Promise<string>((resolve, reject) => {
-      const accumulated = () => this.buffer;
-
       const check = () => {
-        if (this.buffer.includes(CLI_PROMPT)) {
-          resolve(this.buffer);
-          return;
-        }
-      };
-
-      // Poll every 10ms
-      const interval = setInterval(() => {
-        if (accumulated().includes(CLI_PROMPT)) {
+        if (this.buffer.endsWith(CLI_PROMPT) && Date.now() - this.lastDataAt >= PROMPT_QUIET_MS) {
           clearInterval(interval);
           clearTimeout(timer);
           resolve(this.buffer);
         }
-      }, 10);
+      };
+
+      // Poll every 10ms
+      const interval = setInterval(check, 10);
 
       const timer = setTimeout(() => {
         clearInterval(interval);
         reject(new Error(`CLI prompt not received within ${timeoutMs}ms. Buffer: ${JSON.stringify(this.buffer.slice(-200))}`));
       }, timeoutMs);
 
-      // Immediate check
+      // Immediate check (covers the case where the prompt was already buffered)
       check();
     });
   }
