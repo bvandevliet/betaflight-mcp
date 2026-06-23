@@ -151,6 +151,14 @@ Before tuning, verify:
 
 7. **Propwash troubleshooting — check dynamic idle first**: if propwash is the presenting symptom, verify dynamic idle before any tuning flights. Run `get dyn_idle_min_rpm`. If it returns 0, dynamic idle is disabled — set it now per the Dynamic Idle table. Motor near-stall on throttle chop produces propwash that no filter or PID adjustment can fully cure. Also set `transient_throttle_limit = 0` when enabling dynamic idle.
 
+8. **Feature flag OFF does not mean the function is disabled** — many Betaflight features (AIRMODE, FLIP_OVER_AFTER_CRASH, ANTI_GRAVITY, etc.) have a parallel `BOX*` aux mode. The `feature` CLI flag sets the **permanent/default** state; if the same function is instead mapped to a switch via `aux`, the feature flag is deliberately left OFF and the switch's configured range determines the actual default behavior (often "on by rest position, off when flipped" — the opposite of what the flag alone suggests). **Before reporting a feature as "disabled" or recommending `feature_enable`, always cross-check `get_aux_config` for a mode range tied to that function.** If a range exists, explain the actual resulting behavior (and ask the user which physical switch position is the resting one if it's ambiguous from the range alone) instead of telling them to flip the feature flag — doing so would remove their switch-based override entirely. This is a common false positive: a pilot who intentionally moved AIRMODE to a switch (e.g. to disable it for tiny whoops) will see "AIRMODE: OFF" in `feature_list` even though it's active by default in the air.
+
+9. **`small_angle = 180` is frequently intentional, not a misconfiguration** — `small_angle` is a **pre-arm tilt-lock safety check**, unrelated to `angle_limit` (the angle-mode max-tilt variable; see Flight Mode and Rates below). Setting `small_angle` near 180 disables the arming-tilt restriction, which is **required for Flip Over After Crash ("turtle mode")** to re-arm and right itself while inverted. Before flagging a high `small_angle` value as unsafe, check `feature_list` for `FLIP_OVER_AFTER_CRASH` and `get_aux_config` for a `BOXFLIPOVERAFTERCRASH` range — if either is present, the high value is the correct, intentional setting and should not be "fixed."
+
+**Resolving `aux` output to mode names**: `get_aux_config` runs the raw CLI `aux` command, which returns rows of `<index> <boxId> <auxChannelIndex> <startStep> <endStep> ...` — `boxId` is a bare integer, not a name. Its mapping to box names (`BOXAIRMODE`, `BOXFLIPOVERAFTERCRASH`, etc.) is defined by enum order in `src/main/fc/rc_modes.h` and **shifts between firmware versions** as boxes are added/removed — never assume a fixed numeric ID. When you need to resolve a `boxId`, fetch the current enum from `https://raw.githubusercontent.com/betaflight/betaflight/master/src/main/fc/rc_modes.h` (or the version-matched tag/branch if the connected FC's `get_version` differs from latest) and count enum position, or simply ask the user to confirm via Configurator's Modes tab if there's any ambiguity — don't guess.
+
+`startStep`/`endStep` are channel range steps; actual PWM range = `900 + step * 25`. A range covering the receiver's resting/neutral position for that aux channel means the mode is active by default; a range that excludes it means the switch must be flipped to activate. If the resting position isn't obvious from the range alone (e.g. a 3-position switch), ask the user rather than assuming.
+
 ---
 
 ## PID Controller Fundamentals
@@ -274,7 +282,7 @@ Then `cli_save` to persist all changes.
 ### Flight Mode and Rates
 
 - Fly in **angle mode** — safe in confined spaces, **produces identical step response traces to acro mode** (confirmed by direct testing). The only exception is feedforward (Phase 6), which requires acro/rate mode in BF 4.5+.
-- Set angle limit to 30° for manageable inputs: `set small_angle = 30`
+- Set angle limit to 30° for manageable inputs: `set angle_limit = 30` (this is the angle-mode max-tilt variable — do not confuse with `small_angle`, which is the unrelated pre-arm tilt-lock safety check)
 - Enable and calibrate accelerometer first (required for angle mode)
 - **Use a linear rate curve** for predictable, consistent inputs: **150° center sensitivity / 150° max rate**. This makes step response analysis clearer and removes rate curve nonlinearity as a variable.
 
