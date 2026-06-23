@@ -49,6 +49,7 @@ const INCLUDED_SECTIONS = new Set([
   'GPS Settings',
   'System & Debug',
   'Board & Hardware',
+  'Crash Recovery',
   'EZ Landing',
   'SPA \u2014 Setpoint Process Attenuation',
 ]);
