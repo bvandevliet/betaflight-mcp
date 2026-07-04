@@ -11,7 +11,7 @@ RUN corepack enable && corepack prepare pnpm --activate
 WORKDIR /app
 
 # Install dependencies first (layer-cached until lockfile changes)
-COPY package.json pnpm-lock.yaml .npmrc ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 
 # Copy source and build:

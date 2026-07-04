@@ -38,7 +38,6 @@
   "bugs": "https://github.com/bvandevliet/betaflight-mcp/issues",
   "author": "Bob Vandevliet",
   "license": "AGPL-3.0-only",
-  "packageManager": "pnpm@10.12.2",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
     "serialport": "^13.0.0",

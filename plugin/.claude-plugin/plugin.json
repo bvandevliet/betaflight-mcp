@@ -8,5 +8,12 @@
   },
   "repository": "https://github.com/bvandevliet/betaflight-mcp",
   "license": "AGPL-3.0-only",
-  "keywords": ["betaflight", "fpv", "drone", "pid-tuning", "mcp", "flight-controller"]
+  "keywords": [
+    "betaflight",
+    "fpv",
+    "drone",
+    "pid-tuning",
+    "mcp",
+    "flight-controller"
+  ]
 }

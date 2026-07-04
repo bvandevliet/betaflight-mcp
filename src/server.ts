@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { createRequire } from 'node:module';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { registerConnectionTools } from './tools/connection.js';
@@ -9,9 +10,12 @@ import { registerSystemTools } from './tools/system.js';
 import { registerSliderTools } from './tools/sliders.js';
 import { registerVariableTools } from './generated/variables.js';
 
+const require = createRequire(import.meta.url);
+const { version } = require('../package.json') as { version: string };
+
 const server = new McpServer({
   name: 'betaflight-mcp',
-  version: '1.0.0-alpha',
+  version,
 });
 
 registerConnectionTools(server);
