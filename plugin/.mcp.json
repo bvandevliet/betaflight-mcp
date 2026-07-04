@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "betaflight": {
+      "command": "npx",
+      "args": ["-y", "betaflight-mcp"]
+    }
+  }
+}

@@ -1,33 +1,51 @@
 {
   "name": "betaflight-mcp",
-  "version": "1.0.0",
-  "description": "MCP server for Betaflight flight controllers via MSP protocol",
+  "version": "1.0.0-alpha",
+  "description": "Betaflight MCP server with expert FPV drone PID tuning skill",
   "type": "module",
   "main": "dist/server.js",
   "bin": {
-    "betaflight-mcp": "dist/server.js"
+    "betaflight-mcp": "dist/server.js",
+    "betaflight-mcp-whitelist-reads": "scripts/whitelist-reads.mjs"
+  },
+  "files": [
+    "dist",
+    "scripts/whitelist-reads.mjs",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22"
   },
   "scripts": {
-    "generate": "tsx scripts/generate-variables.ts",
+    "generate": "tsx scripts/generate-variables.ts && tsx scripts/generate-arming-flags.ts",
     "prebuild": "pnpm run generate",
     "build": "tsc",
+    "postbuild": "node -e \"const fs=require('fs'); fs.chmodSync('dist/server.js', 0o755); fs.chmodSync('scripts/whitelist-reads.mjs', 0o755);\"",
     "build:watch": "tsc --watch",
     "dev": "tsx src/server.ts",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src/"
+    "lint": "eslint src/",
+    "prepublishOnly": "pnpm build",
+    "whitelist-reads": "node scripts/whitelist-reads.mjs"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bvandevliet/betaflight-mcp.git"
+  },
+  "homepage": "https://github.com/bvandevliet/betaflight-mcp#readme",
+  "bugs": "https://github.com/bvandevliet/betaflight-mcp/issues",
   "author": "Bob Vandevliet",
   "license": "AGPL-3.0-only",
-  "packageManager": "pnpm@10.12.2",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.27.1",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "serialport": "^13.0.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@types/node": "^25.3.3",
-    "tsx": "^4.21.0",
-    "typescript": "^5.9.3"
+    "@types/node": "^25.6.2",
+    "tsx": "^4.22.4",
+    "typescript": "^6.0.3"
   }
 }

@@ -1,0 +1,84 @@
+name: Publish to npm
+
+on:
+  push:
+    branches:
+      - "**"
+
+jobs:
+  gitversion:
+    name: Execute GitVersion and create tag
+    uses: bvandevliet/Actions.Shared/.github/workflows/git-version.yml@master
+    permissions:
+      contents: write
+    with:
+      createTag: false
+
+  publish:
+    name: Publish package
+    needs: gitversion
+    if: ${{ github.actor != 'dependabot[bot]' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    env:
+      IS_MAIN: ${{ github.ref_name == github.event.repository.default_branch }}
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@main
+
+      - name: "Setup Node.js"
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          registry-url: "https://registry.npmjs.org"
+
+      - name: "Install npm CLI with trusted-publishing (OIDC) support"
+        run: npm install -g npm@latest
+
+      - name: "Setup pnpm"
+        uses: pnpm/action-setup@v6
+        with:
+          version: latest
+
+      - name: "Install dependencies"
+        run: pnpm install --frozen-lockfile
+
+      - name: "Build package"
+        run: pnpm build
+
+      - name: "Set package version"
+        run: |
+          if [ "${{ env.IS_MAIN }}" == "true" ]; then
+            npm version ${{ needs.gitversion.outputs.majorMinorPatch }} --no-git-tag-version --allow-same-version
+          else
+            npm version ${{ needs.gitversion.outputs.semVer }} --no-git-tag-version --allow-same-version
+          fi
+
+      - name: "Publish package"
+        run: |
+          if [ "${{ env.IS_MAIN }}" == "true" ]; then
+            npm publish --access public
+          else
+            npm publish --access public --tag "${{ needs.gitversion.outputs.preReleaseLabel || 'next' }}"
+          fi
+
+      - name: "Sync plugin manifest version"
+        if: ${{ env.IS_MAIN == 'true' }}
+        run: |
+          node -e "
+            const fs = require('fs');
+            const path = 'plugin/.claude-plugin/plugin.json';
+            const manifest = JSON.parse(fs.readFileSync(path, 'utf8'));
+            manifest.version = '${{ needs.gitversion.outputs.majorMinorPatch }}';
+            fs.writeFileSync(path, JSON.stringify(manifest, null, 2) + '\n');
+          "
+
+      - name: "Commit plugin manifest version bump"
+        if: ${{ env.IS_MAIN == 'true' }}
+        uses: stefanzweifel/git-auto-commit-action@v7
+        with:
+          commit_message: "chore(plugin): bump manifest version to ${{ needs.gitversion.outputs.majorMinorPatch }} [skip ci]"
+          file_pattern: plugin/.claude-plugin/plugin.json
+          tag_name: ${{ needs.gitversion.outputs.majorMinorPatch }}
