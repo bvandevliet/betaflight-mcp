@@ -5,20 +5,37 @@
   "type": "module",
   "main": "dist/server.js",
   "bin": {
-    "betaflight-mcp": "dist/server.js"
+    "betaflight-mcp": "dist/server.js",
+    "betaflight-mcp-whitelist-reads": "scripts/whitelist-reads.mjs"
+  },
+  "files": [
+    "dist",
+    "scripts/whitelist-reads.mjs",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22"
   },
   "scripts": {
     "generate": "tsx scripts/generate-variables.ts && tsx scripts/generate-arming-flags.ts",
     "prebuild": "pnpm run generate",
     "build": "tsc",
+    "postbuild": "node -e \"const fs=require('fs'); fs.chmodSync('dist/server.js', 0o755); fs.chmodSync('scripts/whitelist-reads.mjs', 0o755);\"",
     "build:watch": "tsc --watch",
     "dev": "tsx src/server.ts",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src/",
-    "setup": "node scripts/setup.mjs",
+    "prepublishOnly": "pnpm build",
     "whitelist-reads": "node scripts/whitelist-reads.mjs"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bvandevliet/betaflight-mcp.git"
+  },
+  "homepage": "https://github.com/bvandevliet/betaflight-mcp#readme",
+  "bugs": "https://github.com/bvandevliet/betaflight-mcp/issues",
   "author": "Bob Vandevliet",
   "license": "AGPL-3.0-only",
   "packageManager": "pnpm@10.12.2",

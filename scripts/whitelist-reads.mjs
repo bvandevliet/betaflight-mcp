@@ -13,7 +13,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '..');
 const PLUGIN_PREFIX = 'mcp__plugin_betaflight-mcp_betaflight__';
 const STALE_WILDCARD = `${PLUGIN_PREFIX}get_*`;
-const VARIABLES_TS = join(REPO_ROOT, 'src', 'generated', 'variables.ts');
+const VARIABLES_JS = join(REPO_ROOT, 'dist', 'generated', 'variables.js');
 const SETTINGS_PATH = join(homedir(), '.claude', 'settings.json');
 
 // Fixed read-only tools that aren't generated from variables.ts
@@ -47,16 +47,19 @@ const FIXED_TOOLS = [
   'get_current_profile',
 ];
 
-// Extract get_* tool names from generated variables.ts
+// Extract get_* tool names from the compiled variables module. Reading the
+// built dist/ output (rather than src/generated/variables.ts) means this
+// script works both from a repo checkout and from an installed npm package,
+// where only dist/ is shipped.
 let variableTools = [];
-if (existsSync(VARIABLES_TS)) {
-  const src = readFileSync(VARIABLES_TS, 'utf8');
+if (existsSync(VARIABLES_JS)) {
+  const src = readFileSync(VARIABLES_JS, 'utf8');
   const matches = [...src.matchAll(/registerTool\(\s*'(get_[^']+)'/g)];
   variableTools = [...new Set(matches.map(m => m[1]))];
-  console.log(`Found ${variableTools.length} get_* variable tools in variables.ts`);
+  console.log(`Found ${variableTools.length} get_* variable tools in variables.js`);
 } else {
-  console.warn(`WARNING: ${VARIABLES_TS} not found.`);
-  console.warn('Run `pnpm generate` first to generate the variables file.');
+  console.warn(`WARNING: ${VARIABLES_JS} not found.`);
+  console.warn('Run `pnpm build` first to compile the server.');
   console.warn('Only the fixed tool list will be added.\n');
 }
 

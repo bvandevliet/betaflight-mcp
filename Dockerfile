@@ -1,10 +1,9 @@
 # ---- Stage 1: Builder ----
 FROM node:24-slim AS builder
 
-# Build tools required to compile @serialport/bindings-cpp native addon
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 make g++ \
-    && rm -rf /var/lib/apt/lists/*
+# No C/C++ toolchain needed: @serialport/bindings-cpp ships prebuilt native
+# binaries (via prebuildify) for linux-x64/arm64 glibc, so node-gyp-build
+# resolves a prebuild instead of compiling from source.
 
 # Activate the exact pnpm version pinned in package.json
 RUN corepack enable && corepack prepare pnpm --activate
@@ -16,11 +15,14 @@ COPY package.json pnpm-lock.yaml .npmrc ./
 RUN pnpm install --frozen-lockfile
 
 # Copy source and build:
-#   prebuild → pnpm generate (fetches CLI.md, emits src/generated/variables.ts)
+#   prebuild → pnpm generate (fetches settings.c/parameter_names.h remotely,
+#              reads plugin/skills/betaflight-pid-tuning/references/betaflight-docs/wiki/cli-reference.md
+#              locally, emits src/generated/variables.ts)
 #   build    → tsc (emits dist/)
 COPY tsconfig.json ./
 COPY src/ ./src/
 COPY scripts/ ./scripts/
+COPY plugin/ ./plugin/
 RUN pnpm build
 
 # Remove devDependencies to keep the copied node_modules lean

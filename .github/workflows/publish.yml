@@ -1,0 +1,62 @@
+name: Publish to npm
+
+on:
+  push:
+    branches:
+      - "**"
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  gitversion:
+    name: Execute GitVersion and create tag
+    uses: bvandevliet/Actions.Shared/.github/workflows/git-version.yml@master
+
+  publish:
+    name: Publish package
+    needs: gitversion
+    if: ${{ github.actor != 'dependabot[bot]' }}
+    runs-on: ubuntu-latest
+    env:
+      IS_MAIN: ${{ github.ref_name == github.event.repository.default_branch }}
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@main
+
+      - name: "Setup Node.js"
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          registry-url: "https://registry.npmjs.org"
+
+      - name: "Install npm CLI with trusted-publishing (OIDC) support"
+        run: npm install -g npm@latest
+
+      - name: "Setup pnpm"
+        uses: pnpm/action-setup@v6
+        with:
+          version: latest
+
+      - name: "Install dependencies"
+        run: pnpm install --frozen-lockfile
+
+      - name: "Build package"
+        run: pnpm build
+
+      - name: "Set package version"
+        run: |
+          if [ "${{ env.IS_MAIN }}" == "true" ]; then
+            npm version ${{ needs.gitversion.outputs.majorMinorPatch }} --no-git-tag-version --allow-same-version
+          else
+            npm version ${{ needs.gitversion.outputs.semVer }} --no-git-tag-version --allow-same-version
+          fi
+
+      - name: "Publish package"
+        run: |
+          if [ "${{ env.IS_MAIN }}" == "true" ]; then
+            npm publish --access public
+          else
+            npm publish --access public --tag "${{ needs.gitversion.outputs.preReleaseLabel || 'next' }}"
+          fi

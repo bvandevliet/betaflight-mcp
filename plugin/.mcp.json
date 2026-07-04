@@ -1,8 +1,8 @@
 {
   "mcpServers": {
     "betaflight": {
-      "command": "node",
-      "args": ["BETAFLIGHT_MCP_SERVER_PATH"]
+      "command": "npx",
+      "args": ["-y", "betaflight-mcp"]
     }
   }
 }
