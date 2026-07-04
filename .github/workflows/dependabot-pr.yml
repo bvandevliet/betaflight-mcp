@@ -4,6 +4,7 @@ on: pull_request
 permissions:
   contents: write
   pull-requests: write
+  actions: write
 
 jobs:
   dependabot:
@@ -17,8 +18,16 @@ jobs:
           github-token: "${{ secrets.GITHUB_TOKEN }}"
       - name: Auto-merge PR if patch
         if: steps.metadata.outputs.update-type == 'version-update:semver-patch'
-        # run: gh pr review --approve "$PR_URL"
-        run: gh pr merge --auto --merge "$PR_URL"
+        # No --auto: neither main nor development has branch protection /
+        # required checks, so --auto's async "enable auto-merge, merge later"
+        # semantics buy nothing here and only risk a race with the dispatch
+        # step below. A direct merge only returns once it has actually happened.
+        run: gh pr merge --merge "$PR_URL"
         env:
           PR_URL: ${{github.event.pull_request.html_url}}
+          GH_TOKEN: ${{secrets.GITHUB_TOKEN}}
+      - name: Dispatch publish workflow
+        if: steps.metadata.outputs.update-type == 'version-update:semver-patch'
+        run: gh workflow run publish.yml --ref "${{ github.event.pull_request.base.ref }}"
+        env:
           GH_TOKEN: ${{secrets.GITHUB_TOKEN}}
