@@ -50,20 +50,12 @@ jobs:
         run: pnpm build
 
       - name: "Set package version"
-        run: |
-          if [ "${{ env.IS_MAIN }}" == "true" ]; then
-            npm version ${{ needs.gitversion.outputs.majorMinorPatch }} --no-git-tag-version --allow-same-version
-          else
-            npm version ${{ needs.gitversion.outputs.semVer }} --no-git-tag-version --allow-same-version
-          fi
+        if: ${{ env.IS_MAIN == 'true' }}
+        run: npm version ${{ needs.gitversion.outputs.majorMinorPatch }} --no-git-tag-version --allow-same-version
 
       - name: "Publish package"
-        run: |
-          if [ "${{ env.IS_MAIN }}" == "true" ]; then
-            npm publish --access public
-          else
-            npm publish --access public --tag "${{ needs.gitversion.outputs.preReleaseLabel || 'next' }}"
-          fi
+        if: ${{ env.IS_MAIN == 'true' }}
+        run: npm publish --access public
 
       - name: "Sync plugin manifest version"
         if: ${{ env.IS_MAIN == 'true' }}
