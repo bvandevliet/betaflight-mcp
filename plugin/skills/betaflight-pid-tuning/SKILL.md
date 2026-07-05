@@ -268,7 +268,7 @@ Before PID flights, create clean test conditions.
 ```
 set_pid_sliders({ feedforward: 0, i_gain: 0.1, dmax_gain: 0 })
 ```
-Keep I-term very low but not fully zero — enough to prevent slow attitude drift in angle mode without producing I windup during step response analysis. Fully zeroing is also valid, but 0.1 is the safer baseline. `dmax_gain: 0` sets the computed `d_max_roll/pitch` to 0, which disables the dynamic D boost so D stays constant at the base `d_roll`/`d_pitch` value throughout the test.
+Keep I-term very low but not fully zero — enough to prevent slow attitude drift in angle mode without producing I-term windup during step response analysis. Fully zeroing is also valid, but 0.1 is the safer baseline. `dmax_gain: 0` sets the computed `d_max_roll/pitch` to 0, which disables the dynamic D boost so D stays constant at the base `d_roll`/`d_pitch` value throughout the test.
 
 **CLI** (direct variables not covered by the slider system — run via `cli_exec`):
 ```
@@ -384,7 +384,7 @@ Use the **pitch damping slider** (`set_pid_sliders({ roll_pitch_ratio: X })`) to
 **Example scenario**: If roll responds well at damping 1.0 but pitch shows sluggish tracking:
 1. Increase **pitch tracking slider** to raise P and I on pitch (e.g., from 1.0 to 1.2): `set_pid_sliders({ pitch_pi: 1.2 })`
 2. Fine-tune **pitch damping slider** if pitch-specific oscillations appear: `set_pid_sliders({ roll_pitch_ratio: 1.1 })`
-3. If pitch nose bobble persists, also consider raising `anti_gravity_gain` (boosts I during throttle changes)
+3. If pitch nose bobble persists, also consider raising `anti_gravity_gain` (boosts I-term during throttle changes)
 
 **Important limitation**: Excessive pitch gains to compensate for very high rotational inertia are counterproductive. If pitch requires dramatically higher gains than roll (e.g., 50%+ higher), the issue may be mechanical (frame flex, motor position, weight distribution) rather than tunable via PIDs. Know when to stop.
 
@@ -403,7 +403,7 @@ Wide tuning window — defaults are often fine for 5" freestyle. Sweep PI tracki
 
 **Related settings:**
 
-`iterm_relax_cutoff` — prevents I windup during fast moves. Higher = reacts faster (better for racing); lower = smoother (better for large/slow builds). Use this table as a starting point:
+`iterm_relax_cutoff` — prevents I-term windup during fast moves. Higher = reacts faster (better for racing); lower = smoother (better for large/slow builds). Use this table as a starting point:
 
 | Build type | `iterm_relax_cutoff` |
 |------------|---------------------|
@@ -414,8 +414,11 @@ Wide tuning window — defaults are often fine for 5" freestyle. Sweep PI tracki
 
 **Bounce-back diagnostic sequence**: if bounce-back or oscillation after flips/rolls persists, step `iterm_relax_cutoff` down — 15 → 10 → 7 → 5 — testing after each step, noting improvement before going further.
 
-- `iterm_windup` (default 85% in BF 4.4/4.5; 80% in BF 2025.12): suppresses I accumulation near motor saturation. Default is sensible.
-- `anti_gravity_gain` (default 80): boosts I on rapid throttle changes. Reduce if throttle-punch wobbles appear.
+- `iterm_windup` (default 85% in BF 4.4/4.5; 80% in BF 2025.12): suppresses I-term accumulation near motor saturation. Default is sensible.
+- `anti_gravity_gain` (default 80): boosts I-term on rapid throttle changes, compensating for the P-error spike a sudden load change causes. Two opposite failure modes on the same variable:
+  - **Too low**: I-term can't compensate fast enough — nose dips or the craft's attitude visibly shifts on a hard throttle punch (the correction lags the disturbance). Increase.
+  - **Too high**: the I-term boost overshoots the correction — wobble or bounce-back *after* the punch, once the disturbance is gone but the boosted I-term is still unwinding. Reduce.
+  When diagnosing, note *when* the symptom appears relative to the punch — during (too low) vs. just after (too high) — before picking a direction.
 - `anti_gravity_p_gain`: tune the P boost component of anti-gravity separately.
 - `anti_gravity_cutoff_hz`: filter cutoff — adjust for very small or large quads.
 
@@ -720,13 +723,14 @@ For full documentation, read `references/betaflight-docs/wiki/cli-reference.md`.
 | Oscillations only on fast moves, not hover | P too high | Reduce master multiplier or P&I slider |
 | Oscillations during hover | D too high or noise | Reduce D or increase D-term LPF |
 | Oscillations at high throttle only | PID too high under load | Tune TPA |
-| Slow, sluggish feel | Gains too low | Raise master multiplier |
+| Slow, sluggish feel | Gains too low **— but check rates first** (`rc_rate`/`rates_type`/expo/`max_dps`); a low rate curve feels identical to low gains and no amount of PID tuning fixes it | Raise master multiplier, or raise rates if that's the actual cause |
 | Gyro lags setpoint throughout move | FF too low | Increase feedforward slider |
 | Overshoot / bounce-back at end of move | FF too high | Reduce feedforward slider |
 | Propwash after throttle chop | D or dynamic idle too low | Raise D-min or dynamic idle |
-| Quad drifts / can't hold heading | I too low | Raise I-term slider |
-| Slow wobbles after fast flip/roll | I too high | Reduce I-term slider |
-| Wobbles specifically on throttle punch | Anti-gravity too high | Reduce `anti_gravity_gain` |
+| Quad drifts / can't hold heading | I-term too low | Raise I-term slider |
+| Slow wobbles after fast flip/roll | I-term too high | Reduce I-term slider |
+| Nose dips / attitude visibly shifts *during* a throttle punch | Anti-gravity too low (I-term can't compensate fast enough) | Increase `anti_gravity_gain` |
+| Wobble or bounce-back *just after* a throttle punch | Anti-gravity too high (I-term overshoots, then unwinds) | Reduce `anti_gravity_gain` |
 | Motor heat without oscillations | D-term noise | Raise D-term LPF cutoff or reduce D |
 | Mushy / delayed response | Too much filtering | Reduce filter aggressiveness |
 | Bounceback at move entry (step start) | FF boost too high | Reduce `feedforward_boost` |
