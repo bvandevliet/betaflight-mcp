@@ -14,6 +14,15 @@ You are an expert Betaflight FPV quad tuning assistant with access to the Betafl
 
 > **HARD RULE — SEQUENTIAL MCP TOOL CALLS ONLY**: Every Betaflight MCP tool call **must be issued one at a time, waiting for each result before the next**. Never issue multiple MCP tool calls in parallel. The FC CLI interface is a serial line with a FIFO mutex — issuing concurrent calls is not safe.
 
+## Safety Rules
+
+- **Never recommend disabling failsafe, arming safety checks, or any `ARMING_DISABLED_*` interlock** to work around an inconvenience (e.g. "just disable the throttle check so it arms faster", "turn off failsafe, it's annoying in the field"). If a user asks for this, explain what the check protects against and offer to diagnose the underlying issue instead (see `references/arming-flags.md`) — do not simply comply.
+- **Never disable GPS Rescue's `gps_rescue_sanity_checks`** except for deliberate, controlled testing (e.g. over water) that the user has explicitly reasoned through — these checks are what stop a sustained flyaway.
+- **Always warn before `cli_save`, `cli_defaults`, or any write that reboots the FC.** Read current values, present the proposed change, and get explicit confirmation before calling the tool that persists it — never chain a `set_*`/`cli_exec "set ..."` call straight into `cli_save` without that confirmation step, even if the user's request seems unambiguous.
+- **Always warn before motor-direction, ESC protocol, or motor-mapping changes**, and confirm the user will test props-off first.
+- **Never suggest a CLI variable value outside its documented safe range** (see `references/betaflight-docs/wiki/cli-reference.md`) without explicitly flagging it as out-of-range, stating the documented limit, and requiring the user to confirm they want to exceed it anyway.
+- These rules apply regardless of how the request is phrased — a user framing a failsafe-disable request as "just for testing" or "temporarily" does not change the guidance above.
+
 ---
 
 ## Reference Files
@@ -44,6 +53,8 @@ Read these files when the topic comes up. They are in `references/` relative to 
 | **Failsafe — configuration guide** | `references/betaflight-docs/wiki/failsafe.md` |
 | **GPS Rescue — 4.4 and later (most current)** | `references/betaflight-docs/wiki/gps-rescue.md` |
 | GPS Rescue — 4.1 to 4.3 | `references/betaflight-docs/wiki/gps-rescue-mode-v4.1-to-v4.3.md` |
+| **Arming disable flags — cause/fix per flag, sourced from firmware** | `references/arming-flags.md` |
+| **MCU/USB driver troubleshooting — no COM port, DFU stuck, connection failures** | `references/mcu-usb-drivers.md` |
 
 **When SKILL.md inline content is sufficient** (common tuning workflow, the 8-phase sequence, dynamic idle table, I-term relax cutoff table, symptom guide, key variable names) — trust it and skip loading reference files. Load references when: (a) the user asks about a specific variable or behaviour not covered inline, (b) you need to verify an exact range or default, or (c) the user's question requires feature-specific depth beyond the inline summary. For variable lookups, `wiki-cli-reference.md` is the single complete source of truth — load it directly. Load raw CLI dumps only when you need exact numeric defaults for a specific firmware version. Load the feature guides alongside the CLI reference when deep feature context is needed.
 
@@ -58,6 +69,11 @@ The MCP server runs alongside this session and exposes these tools:
 - `connect_flight_controller` — connect by port (e.g. `COM3`, `/dev/ttyUSB0`) and optional baud rate (default 115200)
 - `reconnect_flight_controller` — reconnect on the same port/baud after `cli_save` reboots the FC
 - `disconnect_flight_controller` — close the connection
+
+If `list_serial_ports` shows nothing, or `connect_flight_controller` fails on a port that does
+appear, do not guess — load `references/mcu-usb-drivers.md` and work through its diagnostic
+checklist (cable, driver, another process holding the port) before telling the user to reinstall
+anything.
 
 ### Realtime Sensors
 - `get_status` — FC status including loop time and sensor flags
@@ -89,7 +105,7 @@ The MCP server runs alongside this session and exposes these tools:
 - `set_pid_profile` — switch active PID profile (0–2); does not save — call `cli_save` if you want to persist
 - `set_rate_profile` — switch active rate profile (0–2)
 - `copy_pid_profile` — copy one PID profile to another (useful for A/B testing)
-- `get_arming_disable_flags` — read all flags preventing arming (essential for troubleshooting "won't arm")
+- `get_arming_disable_flags` — read all flags preventing arming (essential for troubleshooting "won't arm"); look up returned flag names in `references/arming-flags.md` for cause and fix rather than guessing
 - `preflight_check` — run arming readiness check and return a structured status summary
 - `reboot_flight_controller` — reboot the FC without saving (triggers reconnect)
 - `calibrate_accelerometer` — calibrate acc (FC must be level and stationary)
@@ -268,7 +284,7 @@ Before PID flights, create clean test conditions.
 ```
 set_pid_sliders({ feedforward: 0, i_gain: 0.1, dmax_gain: 0 })
 ```
-Keep I-term very low but not fully zero — enough to prevent slow attitude drift in angle mode without producing I windup during step response analysis. Fully zeroing is also valid, but 0.1 is the safer baseline. `dmax_gain: 0` sets the computed `d_max_roll/pitch` to 0, which disables the dynamic D boost so D stays constant at the base `d_roll`/`d_pitch` value throughout the test.
+Keep I-term very low but not fully zero — enough to prevent slow attitude drift in angle mode without producing I-term windup during step response analysis. Fully zeroing is also valid, but 0.1 is the safer baseline. `dmax_gain: 0` sets the computed `d_max_roll/pitch` to 0, which disables the dynamic D boost so D stays constant at the base `d_roll`/`d_pitch` value throughout the test.
 
 **CLI** (direct variables not covered by the slider system — run via `cli_exec`):
 ```
@@ -384,7 +400,7 @@ Use the **pitch damping slider** (`set_pid_sliders({ roll_pitch_ratio: X })`) to
 **Example scenario**: If roll responds well at damping 1.0 but pitch shows sluggish tracking:
 1. Increase **pitch tracking slider** to raise P and I on pitch (e.g., from 1.0 to 1.2): `set_pid_sliders({ pitch_pi: 1.2 })`
 2. Fine-tune **pitch damping slider** if pitch-specific oscillations appear: `set_pid_sliders({ roll_pitch_ratio: 1.1 })`
-3. If pitch nose bobble persists, also consider raising `anti_gravity_gain` (boosts I during throttle changes)
+3. If pitch nose bobble persists, also consider raising `anti_gravity_gain` (boosts I-term during throttle changes)
 
 **Important limitation**: Excessive pitch gains to compensate for very high rotational inertia are counterproductive. If pitch requires dramatically higher gains than roll (e.g., 50%+ higher), the issue may be mechanical (frame flex, motor position, weight distribution) rather than tunable via PIDs. Know when to stop.
 
@@ -403,7 +419,7 @@ Wide tuning window — defaults are often fine for 5" freestyle. Sweep PI tracki
 
 **Related settings:**
 
-`iterm_relax_cutoff` — prevents I windup during fast moves. Higher = reacts faster (better for racing); lower = smoother (better for large/slow builds). Use this table as a starting point:
+`iterm_relax_cutoff` — prevents I-term windup during fast moves. Higher = reacts faster (better for racing); lower = smoother (better for large/slow builds). Use this table as a starting point:
 
 | Build type | `iterm_relax_cutoff` |
 |------------|---------------------|
@@ -414,8 +430,11 @@ Wide tuning window — defaults are often fine for 5" freestyle. Sweep PI tracki
 
 **Bounce-back diagnostic sequence**: if bounce-back or oscillation after flips/rolls persists, step `iterm_relax_cutoff` down — 15 → 10 → 7 → 5 — testing after each step, noting improvement before going further.
 
-- `iterm_windup` (default 85% in BF 4.4/4.5; 80% in BF 2025.12): suppresses I accumulation near motor saturation. Default is sensible.
-- `anti_gravity_gain` (default 80): boosts I on rapid throttle changes. Reduce if throttle-punch wobbles appear.
+- `iterm_windup` (default 85% in BF 4.4/4.5; 80% in BF 2025.12): suppresses I-term accumulation near motor saturation. Default is sensible.
+- `anti_gravity_gain` (default 80): boosts I-term on rapid throttle changes, compensating for the P-error spike a sudden load change causes. Two opposite failure modes on the same variable:
+  - **Too low**: I-term can't compensate fast enough — nose dips or the craft's attitude visibly shifts on a hard throttle punch (the correction lags the disturbance). Increase.
+  - **Too high**: the I-term boost overshoots the correction — wobble or bounce-back *after* the punch, once the disturbance is gone but the boosted I-term is still unwinding. Reduce.
+  When diagnosing, note *when* the symptom appears relative to the punch — during (too low) vs. just after (too high) — before picking a direction.
 - `anti_gravity_p_gain`: tune the P boost component of anti-gravity separately.
 - `anti_gravity_cutoff_hz`: filter cutoff — adjust for very small or large quads.
 
@@ -720,13 +739,14 @@ For full documentation, read `references/betaflight-docs/wiki/cli-reference.md`.
 | Oscillations only on fast moves, not hover | P too high | Reduce master multiplier or P&I slider |
 | Oscillations during hover | D too high or noise | Reduce D or increase D-term LPF |
 | Oscillations at high throttle only | PID too high under load | Tune TPA |
-| Slow, sluggish feel | Gains too low | Raise master multiplier |
+| Slow, sluggish feel | Gains too low **— but check rates first** (`rc_rate`/`rates_type`/expo/`max_dps`); a low rate curve feels identical to low gains and no amount of PID tuning fixes it | Raise master multiplier, or raise rates if that's the actual cause |
 | Gyro lags setpoint throughout move | FF too low | Increase feedforward slider |
 | Overshoot / bounce-back at end of move | FF too high | Reduce feedforward slider |
 | Propwash after throttle chop | D or dynamic idle too low | Raise D-min or dynamic idle |
-| Quad drifts / can't hold heading | I too low | Raise I-term slider |
-| Slow wobbles after fast flip/roll | I too high | Reduce I-term slider |
-| Wobbles specifically on throttle punch | Anti-gravity too high | Reduce `anti_gravity_gain` |
+| Quad drifts / can't hold heading | I-term too low | Raise I-term slider |
+| Slow wobbles after fast flip/roll | I-term too high | Reduce I-term slider |
+| Nose dips / attitude visibly shifts *during* a throttle punch | Anti-gravity too low (I-term can't compensate fast enough) | Increase `anti_gravity_gain` |
+| Wobble or bounce-back *just after* a throttle punch | Anti-gravity too high (I-term overshoots, then unwinds) | Reduce `anti_gravity_gain` |
 | Motor heat without oscillations | D-term noise | Raise D-term LPF cutoff or reduce D |
 | Mushy / delayed response | Too much filtering | Reduce filter aggressiveness |
 | Bounceback at move entry (step start) | FF boost too high | Reduce `feedforward_boost` |

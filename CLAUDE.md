@@ -12,6 +12,7 @@ pnpm build:watch       # Incremental watch build
 pnpm dev               # Run server directly via tsx (no build step)
 pnpm start             # Run compiled dist/server.js
 pnpm lint              # ESLint over src/
+pnpm eval               # Run plugin/skills/betaflight-pid-tuning/evals/evals.json against Claude (needs ANTHROPIC_API_KEY)
 ```
 
 `pnpm build` automatically runs `pnpm generate` as a prebuild step. Always run `pnpm typecheck` after editing any source files to catch errors before building.
@@ -109,6 +110,17 @@ The `plugin/` directory configures this repo as a Claude Code plugin. The primar
 Reference docs for the skill live in `plugin/skills/betaflight-pid-tuning/references/`:
 - `betaflight-docs/` — official CLI references, tuning notes, feature guides
 - `youtube-transcript-summaries/` — Chris Rosser and PIDtoolbox methodology summaries
+- `arming-flags.md`, `mcu-usb-drivers.md` — original synthesis (not vendored), sourced from
+  firmware and official docs; see their own header comments for exact sources
+
+### Skill evals (`scripts/run-evals.ts`)
+
+`plugin/skills/betaflight-pid-tuning/evals/evals.json` holds natural-language eval cases
+(prompt + assertions). `pnpm eval` sends each prompt to a "skill model" with SKILL.md as the
+system prompt, then asks a "judge model" to score every assertion, exiting 1 if any fails
+(CI-friendly). Only SKILL.md is loaded as system prompt, not the `references/` files — the
+current eval set only exercises inline skill knowledge; see the script's header comment before
+extending it to reference-dependent behaviour. Requires `ANTHROPIC_API_KEY`.
 
 ## Reference sources
 
