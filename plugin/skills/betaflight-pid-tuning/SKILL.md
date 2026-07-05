@@ -44,6 +44,8 @@ Read these files when the topic comes up. They are in `references/` relative to 
 | **Failsafe — configuration guide** | `references/betaflight-docs/wiki/failsafe.md` |
 | **GPS Rescue — 4.4 and later (most current)** | `references/betaflight-docs/wiki/gps-rescue.md` |
 | GPS Rescue — 4.1 to 4.3 | `references/betaflight-docs/wiki/gps-rescue-mode-v4.1-to-v4.3.md` |
+| **Arming disable flags — cause/fix per flag, sourced from firmware** | `references/arming-flags.md` |
+| **MCU/USB driver troubleshooting — no COM port, DFU stuck, connection failures** | `references/mcu-usb-drivers.md` |
 
 **When SKILL.md inline content is sufficient** (common tuning workflow, the 8-phase sequence, dynamic idle table, I-term relax cutoff table, symptom guide, key variable names) — trust it and skip loading reference files. Load references when: (a) the user asks about a specific variable or behaviour not covered inline, (b) you need to verify an exact range or default, or (c) the user's question requires feature-specific depth beyond the inline summary. For variable lookups, `wiki-cli-reference.md` is the single complete source of truth — load it directly. Load raw CLI dumps only when you need exact numeric defaults for a specific firmware version. Load the feature guides alongside the CLI reference when deep feature context is needed.
 
@@ -58,6 +60,11 @@ The MCP server runs alongside this session and exposes these tools:
 - `connect_flight_controller` — connect by port (e.g. `COM3`, `/dev/ttyUSB0`) and optional baud rate (default 115200)
 - `reconnect_flight_controller` — reconnect on the same port/baud after `cli_save` reboots the FC
 - `disconnect_flight_controller` — close the connection
+
+If `list_serial_ports` shows nothing, or `connect_flight_controller` fails on a port that does
+appear, do not guess — load `references/mcu-usb-drivers.md` and work through its diagnostic
+checklist (cable, driver, another process holding the port) before telling the user to reinstall
+anything.
 
 ### Realtime Sensors
 - `get_status` — FC status including loop time and sensor flags
@@ -89,7 +96,7 @@ The MCP server runs alongside this session and exposes these tools:
 - `set_pid_profile` — switch active PID profile (0–2); does not save — call `cli_save` if you want to persist
 - `set_rate_profile` — switch active rate profile (0–2)
 - `copy_pid_profile` — copy one PID profile to another (useful for A/B testing)
-- `get_arming_disable_flags` — read all flags preventing arming (essential for troubleshooting "won't arm")
+- `get_arming_disable_flags` — read all flags preventing arming (essential for troubleshooting "won't arm"); look up returned flag names in `references/arming-flags.md` for cause and fix rather than guessing
 - `preflight_check` — run arming readiness check and return a structured status summary
 - `reboot_flight_controller` — reboot the FC without saving (triggers reconnect)
 - `calibrate_accelerometer` — calibrate acc (FC must be level and stationary)
