@@ -28,7 +28,8 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint src/",
     "prepublishOnly": "pnpm build",
-    "whitelist-reads": "node scripts/whitelist-reads.mjs"
+    "whitelist-reads": "node scripts/whitelist-reads.mjs",
+    "eval": "tsx scripts/run-evals.ts"
   },
   "repository": {
     "type": "git",
