@@ -259,7 +259,7 @@ Targets frame resonances — visible as **vertical stripes** (fixed-frequency pe
 
 - If **no vertical stripes visible → disable it entirely**: `set dyn_notch_count = 0`. Eliminates unnecessary delay. Rigid frames (e.g., well-designed AOS builds) often need no dynamic notch.
 - If resonances exist: set `dyn_notch_count` to match the number of visible peaks. With RPM filtering active, 1–2 notches are sufficient; without RPM filtering, use 4–5.
-- `dyn_notch_min_hz`: ~25 Hz below the resonance, **never below 150 Hz** (ideally ≥200 Hz). For best results, set the minimum frequency to constrain where notches can track.
+- `dyn_notch_min_hz`: ~25 Hz below the resonance, ideally ≥150 Hz. For best results, set the minimum frequency to constrain where notches can track.
 - `dyn_notch_max_hz`: default ~600 Hz is fine; can be narrowed for better resolution if resonance range is known to be narrow
 - `dyn_notch_q`: increase until resonance just escapes the notch, then back off — don't exceed ~1000. Higher Q = narrower notch = less delay.
 
