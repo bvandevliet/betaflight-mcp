@@ -13,6 +13,8 @@
     "fpv",
     "drone",
     "pid-tuning",
+    "adrc",
+    "adrc-tuning",
     "mcp",
     "flight-controller"
   ]
