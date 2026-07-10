@@ -35,9 +35,6 @@ jobs:
           node-version: 24
           registry-url: "https://registry.npmjs.org"
 
-      - name: "Install npm CLI with trusted-publishing (OIDC) support"
-        run: npm install -g npm@latest
-
       - name: "Setup pnpm"
         uses: pnpm/action-setup@v6
         with:
