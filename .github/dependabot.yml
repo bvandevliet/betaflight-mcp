@@ -6,7 +6,7 @@
 version: 2
 updates:
   - package-ecosystem: "npm"
-    directories: # Locations of package manifests
+    directories:
       - "/"
       - "*/"
     schedule:
@@ -21,6 +21,10 @@ updates:
         applies-to: version-updates
         update-types:
           - "patch"
+    allow:
+      - dependency-type: "production"
+        update-types:
+          - "version-update:semver-patch"
     ignore:
       - dependency-name: "*"
         update-types:
